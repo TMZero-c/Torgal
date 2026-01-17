@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Transcriber</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+</head>
+
+<body>
+    <h1>Transcriber</h1>
+    <button id="btn">Start Recording</button>
+    <p id="status"></p>
+    <p id="output"></p>
+
+    <script>
+        let mediaRecorder, chunks = [];
+        const btn = document.getElementById('btn');
+        const status = document.getElementById('status');
+        const output = document.getElementById('output');
+
+        window.electronAPI.onTranscriptionResult(text => {
+            status.textContent = 'Done';
+            output.textContent = text;
+        });
+
+        btn.onclick = async () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                btn.textContent = 'Start Recording';
+            } else {
+                chunks = [];
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = e => chunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    status.textContent = 'Transcribing...';
+                    const buffer = await new Blob(chunks).arrayBuffer();
+                    window.electronAPI.sendAudio(buffer);
+                };
+                mediaRecorder.start();
+                btn.textContent = 'Stop Recording';
+                status.textContent = 'Recording...';
+            }
+        };
+    </script>
+</body>
+
+</html>
