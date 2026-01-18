@@ -3,78 +3,228 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Live Transcriber</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slide Co-Pilot</title>
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, sans-serif;
+            padding: 24px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        #slide {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 40px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        #slide-num {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        #slide-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        #nav {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .nav-btn {
+            padding: 6px 10px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .nav-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        #btn {
+            padding: 10px 20px;
+            font-size: 15px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        #btn.on {
+            background: #e53935;
+        }
+
+        #status {
+            color: #666;
+            font-size: 13px;
+        }
+
+        #transcript {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 4px;
+            min-height: 60px;
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+
+        #partial {
+            color: #888;
+            font-style: italic;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+
+        #info {
+            margin-top: 16px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            border-left: 3px solid #2196F3;
+            font-size: 13px;
+        }
+
+        #info.triggered {
+            background: #c8e6c9;
+            border-color: #4CAF50;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Live Transcriber</h1>
-    <button id="btn">Start</button>
-    <span id="status"></span>
-    <hr>
+    <h1>🎯 Slide Co-Pilot</h1>
+    <p class="subtitle">Auto-transitions slides based on what you're saying</p>
+
+    <div id="slide">
+        <div id="slide-num">Slide 1 of ?</div>
+        <div id="slide-title">Loading...</div>
+    </div>
+
+    <div id="nav"></div>
+
+    <div id="controls">
+        <button id="btn">Start</button>
+        <span id="status">Initializing...</span>
+    </div>
+
     <div id="transcript"></div>
-    <p id="partial"><i></i></p>
+    <div id="partial"></div>
+    <div id="info">Waiting for speech...</div>
 
     <script>
-        const btn = document.getElementById('btn');
-        const status = document.getElementById('status');
-        const transcript = document.getElementById('transcript');
-        const partial = document.getElementById('partial').querySelector('i');
+        const $ = id => document.getElementById(id);
+        let slides = [], current = 0, listening = false;
+        let audioCtx, processor, source, stream;
 
-        let audioContext, processor, source, stream;
-        let isListening = false;
+        function updateSlide(i) {
+            current = i;
+            $('slide-num').textContent = `Slide ${i + 1} of ${slides.length}`;
+            $('slide-title').textContent = slides[i]?.title || '';
+            document.querySelectorAll('.nav-btn').forEach((b, j) => b.classList.toggle('active', j === i));
+        }
 
         window.api.onTranscript(msg => {
             if (msg.type === 'ready') {
-                status.textContent = 'Ready';
-            } else if (msg.type === 'partial') {
-                partial.textContent = msg.text;
-            } else if (msg.type === 'final') {
-                partial.textContent = '';
-                transcript.textContent += msg.text + ' ';
-                transcript.scrollTop = transcript.scrollHeight;
+                $('status').textContent = 'Ready';
+                slides = msg.slides || [];
+                $('nav').innerHTML = slides.map((s, i) =>
+                    `<button class="nav-btn${i === 0 ? ' active' : ''}" data-i="${i}">${i + 1}</button>`
+                ).join('');
+                $('nav').onclick = e => e.target.dataset.i && window.api.gotoSlide(+e.target.dataset.i);
+                updateSlide(0);
+            }
+            else if (msg.type === 'final') {
+                $('transcript').textContent += msg.text + ' ';
+                $('transcript').scrollTop = $('transcript').scrollHeight;
+            }
+            else if (msg.type === 'partial') {
+                $('partial').textContent = msg.text;
+            }
+            else if (msg.type === 'slide_transition') {
+                updateSlide(msg.to_slide);
+                $('info').className = 'triggered';
+                $('info').textContent = `→ Slide ${msg.to_slide + 1}: ${msg.slide_title} (${(msg.confidence * 100).toFixed(0)}%)`;
+                setTimeout(() => $('info').className = '', 1000);
+            }
+            else if (msg.type === 'slide_set') updateSlide(msg.current_slide);
+            else if (msg.type === 'reset_done') {
+                updateSlide(0);
+                $('transcript').textContent = '';
+                $('info').textContent = 'Reset';
             }
         });
 
-        async function startListening() {
+        async function start() {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioContext = new AudioContext({ sampleRate: 16000 });
-            source = audioContext.createMediaStreamSource(stream);
-
-            // Process audio in chunks
-            processor = audioContext.createScriptProcessor(4096, 1, 1);
-            processor.onaudioprocess = (e) => {
-                const float32 = e.inputBuffer.getChannelData(0);
-                // Convert to 16-bit PCM
-                const int16 = new Int16Array(float32.length);
-                for (let i = 0; i < float32.length; i++) {
-                    int16[i] = Math.max(-32768, Math.min(32767, float32[i] * 32768));
-                }
-                // Send as base64
-                const bytes = new Uint8Array(int16.buffer);
-                const base64 = btoa(String.fromCharCode(...bytes));
-                window.api.sendAudioChunk(base64);
+            audioCtx = new AudioContext({ sampleRate: 16000 });
+            source = audioCtx.createMediaStreamSource(stream);
+            processor = audioCtx.createScriptProcessor(4096, 1, 1);
+            processor.onaudioprocess = e => {
+                const f32 = e.inputBuffer.getChannelData(0);
+                const i16 = new Int16Array(f32.length);
+                for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
+                window.api.sendAudioChunk(btoa(String.fromCharCode(...new Uint8Array(i16.buffer))));
             };
-
             source.connect(processor);
-            processor.connect(audioContext.destination);
-            isListening = true;
-            status.textContent = 'Listening...';
-            btn.textContent = 'Stop';
+            processor.connect(audioCtx.destination);
+            listening = true;
+            $('btn').textContent = 'Stop';
+            $('btn').className = 'on';
+            $('status').textContent = 'Listening...';
         }
 
-        function stopListening() {
-            if (processor) processor.disconnect();
-            if (source) source.disconnect();
-            if (audioContext) audioContext.close();
-            if (stream) stream.getTracks().forEach(t => t.stop());
-            isListening = false;
-            status.textContent = 'Stopped';
-            btn.textContent = 'Start';
+        function stop() {
+            processor?.disconnect(); source?.disconnect(); audioCtx?.close();
+            stream?.getTracks().forEach(t => t.stop());
+            listening = false;
+            $('btn').textContent = 'Start';
+            $('btn').className = '';
+            $('status').textContent = 'Stopped';
             window.api.reset();
         }
 
-        btn.onclick = () => isListening ? stopListening() : startListening();
+        $('btn').onclick = () => listening ? stop() : start();
     </script>
 </body>
 

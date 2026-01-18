@@ -37,11 +37,12 @@ function sendToPython(msg) {
 
 ipcMain.on('audio-chunk', (_, data) => sendToPython({ type: 'audio', data }));
 ipcMain.on('reset', () => sendToPython({ type: 'reset' }));
+ipcMain.on('goto-slide', (_, index) => sendToPython({ type: 'goto_slide', index }));
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 500,
-    height: 400,
+    width: 850,
+    height: 700,
     webPreferences: { preload: path.join(__dirname, 'preload.js') }
   });
   mainWindow.loadFile('index.html');
