@@ -49,6 +49,9 @@ from triggers import detect_trigger, TriggerAction
 
 log = get_logger("server")
 
+# Runtime toggles (can be updated via IPC)
+QA_MODE_STATE = QA_MODE
+
 
 class IpcType(str, Enum):
     READY = "ready"
@@ -63,6 +66,7 @@ class IpcType(str, Enum):
     SLIDES_READY = "slides_ready"
     SLIDE_SET = "slide_set"
     RESET_DONE = "reset_done"
+    SET_QA_MODE = "set_qa_mode"
 
 
 @dataclass
@@ -103,13 +107,13 @@ def _weighted_text(
 
 
 def _effective_window_words() -> int:
-    if QA_MODE and QA_WINDOW_WORDS is not None:
+    if QA_MODE_STATE and QA_WINDOW_WORDS is not None:
         return QA_WINDOW_WORDS
     return WINDOW_WORDS
 
 
 def _effective_recency() -> tuple[int, int]:
-    if QA_MODE:
+    if QA_MODE_STATE:
         recent_count = QA_RECENT_WORDS_COUNT if QA_RECENT_WORDS_COUNT is not None else RECENT_WORDS_COUNT
         recent_multiplier = (
             QA_RECENT_WORDS_MULTIPLIER if QA_RECENT_WORDS_MULTIPLIER is not None else RECENT_WORDS_MULTIPLIER
@@ -119,7 +123,7 @@ def _effective_recency() -> tuple[int, int]:
 
 
 def _effective_audio_buffer_seconds() -> int:
-    if QA_MODE and QA_AUDIO_BUFFER_SECONDS is not None:
+    if QA_MODE_STATE and QA_AUDIO_BUFFER_SECONDS is not None:
         return QA_AUDIO_BUFFER_SECONDS
     return AUDIO_BUFFER_SECONDS
 
@@ -357,7 +361,7 @@ def handle_load_slides(msg, text_window):
         Slide(i, s.get("title", f"Slide {i + 1}"), s.get("content", ""))
         for i, s in enumerate(slides_data)
     ]
-    matcher = SlideMatcher(slides=slides)
+    matcher = SlideMatcher(slides=slides, qa_mode=QA_MODE_STATE)
     text_window.clear()
     log(f"SlideMatcher created with {len(slides)} slides")
     log("Sending slides_ready to Electron")
@@ -410,6 +414,22 @@ def main():
                 speech_state.last_word_ts = 0.0
                 speech_state.last_partial_match_ts = 0.0
                 send_type(IpcType.RESET_DONE, current_slide=0)
+
+            elif msg["type"] == IpcType.SET_QA_MODE.value:
+                qa_mode = bool(msg.get("qa_mode"))
+                global QA_MODE_STATE
+                QA_MODE_STATE = qa_mode
+                log(f"QA mode set to {QA_MODE_STATE}")
+
+                transcriber.buffer_seconds = _effective_audio_buffer_seconds()
+
+                if matcher:
+                    matcher.set_qa_mode(QA_MODE_STATE)
+                # Clear recent context to avoid mixing modes
+                text_window.clear()
+                speech_state.last_partial_text = ""
+                speech_state.last_partial_ts = 0.0
+                speech_state.last_partial_match_ts = 0.0
 
         except Exception as e:
             import traceback

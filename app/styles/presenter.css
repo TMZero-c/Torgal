@@ -41,6 +41,11 @@ body { font-family: 'Inter', sans-serif; background: #1a1a1a; color: #fff; heigh
     margin-bottom: 10px;
 }
 
+.placeholder-subtext {
+    font-size: 12px;
+    color: #999;
+}
+
 .controls { flex: 0 0 auto; display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
 .controls button { padding: 10px 16px; background: #D4953C; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .controls button:hover { background: #E5E0D8; }

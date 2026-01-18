@@ -66,6 +66,10 @@ ipcMain.on('audio-chunk', (_, payload) => {
 });
 ipcMain.on('reset', () => sendToPython({ type: 'reset' }));
 ipcMain.on('goto-slide', (_, index) => sendToPython({ type: 'goto_slide', index }));
+ipcMain.on('set-qa-mode', (_, payload) => {
+  const qaMode = Boolean(payload?.qa_mode);
+  sendToPython({ type: 'set_qa_mode', qa_mode: qaMode });
+});
 
 ipcMain.handle('dialog:openFile', async () => {
   log('UPLOAD', 'Opening file dialog...');

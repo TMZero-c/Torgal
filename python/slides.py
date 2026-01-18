@@ -452,3 +452,18 @@ class SlideMatcher:
     def reset(self) -> None:
         self.current = 0
         self.words_since = 0
+
+    def set_qa_mode(self, qa_mode: bool) -> None:
+        """Toggle Q&A mode at runtime and refresh thresholds/diff."""
+        self.qa_mode = bool(qa_mode)
+        effective_threshold = MATCH_THRESHOLD
+        if self.qa_mode and QA_MATCH_THRESHOLD is not None:
+            effective_threshold = QA_MATCH_THRESHOLD
+        self.threshold = effective_threshold
+
+        effective_diff = MATCH_DIFF
+        if self.qa_mode and QA_MATCH_DIFF is not None:
+            effective_diff = QA_MATCH_DIFF
+        self.diff = effective_diff
+
+        log(f"QA mode updated: qa_mode={self.qa_mode}, threshold={self.threshold}, diff={self.diff}")
