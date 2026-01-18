@@ -3,8 +3,10 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+let mainWindow;
+
 ipcMain.handle('dialog:openFile', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [
       { name: 'Presentations', extensions: ['pdf', 'pptx'] }
@@ -13,25 +15,34 @@ ipcMain.handle('dialog:openFile', async () => {
 
   if (!canceled) {
     const selectedPath = filePaths[0];
-    
-    // TEST STEP: Send this path to your Python script immediately
-    runPythonParser(selectedPath); 
-    
+    runPythonParser(selectedPath, mainWindow);
     return selectedPath;
   }
 });
 
-function runPythonParser(filePath) {
-  const { spawn } = require('child_process');
-  // Adjust 'python' to 'python3' or your venv path as needed
-  const py = spawn('python', ['parse_slides.py', filePath]);
+function runPythonParser(filePath, window) {
+  const pythonPath = path.join(__dirname, '..', '.venv', 'Scripts', 'python.exe');
+  const scriptPath = path.join(__dirname, '..', 'python', 'parse_slides.py');
+  const py = spawn(pythonPath, [scriptPath, filePath]);
 
+  let output = '';
   py.stdout.on('data', (data) => {
-    console.log(`Python Output: ${data.toString()}`);
+    output += data.toString();
   });
 
   py.stderr.on('data', (data) => {
     console.error(`Python Error: ${data.toString()}`);
+  });
+
+  py.on('close', (code) => {
+    if (code === 0 && window) {
+      try {
+        const slideData = JSON.parse(output);
+        window.webContents.send('slides-loaded', slideData);
+      } catch (e) {
+        console.error('Failed to parse Python output:', e);
+      }
+    }
   });
 }
 

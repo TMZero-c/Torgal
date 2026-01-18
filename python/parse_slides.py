@@ -1,15 +1,33 @@
 import fitz # PyMuPDF
 import sys
 import json
+import base64
+from io import BytesIO
 
-def test_parse(file_path):
+def parse_slides(file_path):
     try:
         doc = fitz.open(file_path)
-        # Just return basic info for testing
+        slides = []
+        
+        for i, page in enumerate(doc):
+            # Render page to image
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
+            image_bytes = pix.tobytes("png")
+            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+            
+            # Extract text
+            text = page.get_text()
+            
+            slides.append({
+                "page": i + 1,
+                "image": f"data:image/png;base64,{image_base64}",
+                "text": text
+            })
+        
         result = {
             "status": "success",
-            "pages": len(doc),
-            "first_line": doc[0].get_text().split('\n')[0] if len(doc) > 0 else "Empty"
+            "total_pages": len(doc),
+            "slides": slides
         }
         print(json.dumps(result))
     except Exception as e:
@@ -17,4 +35,4 @@ def test_parse(file_path):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        test_parse(sys.argv[1])
+        parse_slides(sys.argv[1])

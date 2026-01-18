@@ -16,6 +16,16 @@
     <button id="upload-btn">Upload Presentation (PDF/PPTX)</button>
     <p id="file-status">No file selected</p>
 
+    <div id="slide-viewer" style="display:none; margin-top: 20px;">
+        <img id="slide-image" src="" style="max-width: 100%; border: 1px solid #ccc;">
+        <div style="margin-top: 10px;">
+            <button id="prev-btn">Previous</button>
+            <span id="slide-counter"></span>
+            <button id="next-btn">Next</button>
+        </div>
+        <p id="slide-text" style="margin-top: 10px; padding: 10px; background: #f0f0f0; max-height: 150px; overflow: auto;"></p>
+    </div>
+
     <script>
         let mediaRecorder, chunks = [];
         const btn = document.getElementById('btn');
@@ -50,10 +60,48 @@
         const uploadBtn = document.getElementById('upload-btn');
         const fileStatus = document.getElementById('file-status');
         
+        let slides = [];
+        let currentSlide = 0;
+
         uploadBtn.onclick = async () => {
             const filePath = await window.electronAPI.openFileDialog();
             if (filePath) {
                 fileStatus.textContent = `Selected: ${filePath}`;
+                fileStatus.textContent += ' (Loading slides...)';
+            }
+        };
+
+        window.electronAPI.onSlidesLoaded((data) => {
+            if (data.status === 'success') {
+                slides = data.slides;
+                currentSlide = 0;
+                displaySlide(0);
+                document.getElementById('slide-viewer').style.display = 'block';
+                fileStatus.textContent = `Loaded ${data.total_pages} slides`;
+            } else {
+                fileStatus.textContent = `Error: ${data.message}`;
+            }
+        });
+
+        function displaySlide(index) {
+            if (slides.length === 0) return;
+            const slide = slides[index];
+            document.getElementById('slide-image').src = slide.image;
+            document.getElementById('slide-text').textContent = slide.text;
+            document.getElementById('slide-counter').textContent = `Slide ${index + 1} of ${slides.length}`;
+        }
+
+        document.getElementById('prev-btn').onclick = () => {
+            if (currentSlide > 0) {
+                currentSlide--;
+                displaySlide(currentSlide);
+            }
+        };
+
+        document.getElementById('next-btn').onclick = () => {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                displaySlide(currentSlide);
             }
         };
         
