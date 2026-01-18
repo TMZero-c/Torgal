@@ -21,6 +21,8 @@ from config import (
     NON_ADJACENT_BOOST,
     KEYWORD_BOOST,
     KEYWORD_MIN_TOKENS,
+    TITLE_BOOST,
+    TITLE_MIN_TOKENS,
     SENTENCE_EMBEDDINGS_ENABLED,
     SENTENCE_MAX_PER_SLIDE,
     SENTENCE_MIN_CHARS,
@@ -116,6 +118,7 @@ class Slide:
     content: str
     embedding: np.ndarray = field(default=None, repr=False)  # type: ignore
     tokens: Set[str] = field(default_factory=set, repr=False)
+    title_tokens: Set[str] = field(default_factory=set, repr=False)
     sentence_embeddings: Optional[np.ndarray] = field(default=None, repr=False)
 
     def __post_init__(self):
@@ -127,6 +130,7 @@ class Slide:
             embeddings = model.encode([text], convert_to_numpy=True)
             self.embedding = embeddings[0]
             self.tokens = _tokenize(text)
+            self.title_tokens = _tokenize(self.title)
 
             if SENTENCE_EMBEDDINGS_ENABLED:
                 sentences = _split_sentences(text)
@@ -212,10 +216,15 @@ class SlideMatcher:
         next_slide = self.current + 1 if self.current + 1 < len(self.slides) else self.current
         prev_slide = self.current - 1 if self.current > 0 else self.current
 
-        # Optionally boost slides that share keywords with the spoken text.
+        # Optionally boost slides that share keywords or title terms with the spoken text.
         sims_used = sims
         speech_tokens = _tokenize(text)
-        if KEYWORD_BOOST > 0 and len(speech_tokens) >= KEYWORD_MIN_TOKENS:
+        needs_boost = (
+            (KEYWORD_BOOST > 0 and len(speech_tokens) >= KEYWORD_MIN_TOKENS)
+            or (TITLE_BOOST > 0 and len(speech_tokens) >= TITLE_MIN_TOKENS)
+        )
+        boost_indices = None
+        if needs_boost:
             sims_used = sims.copy()
             boost_indices = {self.current}
             if next_slide != self.current:
@@ -225,10 +234,17 @@ class SlideMatcher:
             if self.allow_non_adjacent:
                 boost_indices.add(int(np.argmax(sims)))
 
+        if KEYWORD_BOOST > 0 and len(speech_tokens) >= KEYWORD_MIN_TOKENS and boost_indices:
             for idx in boost_indices:
                 overlap = len(speech_tokens & self.slides[idx].tokens) / max(len(speech_tokens), 1)
                 if overlap > 0:
                     sims_used[idx] = min(1.0, sims_used[idx] + KEYWORD_BOOST * overlap)
+
+        if TITLE_BOOST > 0 and len(speech_tokens) >= TITLE_MIN_TOKENS and boost_indices:
+            for idx in boost_indices:
+                overlap = len(speech_tokens & self.slides[idx].title_tokens) / max(len(speech_tokens), 1)
+                if overlap > 0:
+                    sims_used[idx] = min(1.0, sims_used[idx] + TITLE_BOOST * overlap)
 
         # Hybrid sentence-level matching for current/adjacent slides
         if SENTENCE_EMBEDDINGS_ENABLED:

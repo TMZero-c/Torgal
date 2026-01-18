@@ -29,6 +29,10 @@ RECENT_WORDS_MULTIPLIER = 3  # Repeat recent words (>=2 boosts recency)
 KEYWORD_BOOST = 0.10         # Added to similarity for keyword overlap
 KEYWORD_MIN_TOKENS = 3       # Minimum speech tokens before boosting
 
+# Title overlap boost (extra bias when speech matches slide title)
+TITLE_BOOST = 0.08           # Added to similarity for title overlap
+TITLE_MIN_TOKENS = 2         # Minimum speech tokens before boosting
+
 # Sentence-level embeddings (hybrid: only used for current/adjacent slides)
 SENTENCE_EMBEDDINGS_ENABLED = True  # More accurate for bullets, slight extra CPU
 SENTENCE_MAX_PER_SLIDE = 12         # Cap sentences per slide to control cost
