@@ -18,6 +18,15 @@ function showSlide(i) {
     $('preview-img').src = slides[current].image;
     $('slide-number').textContent = `${current + 1} / ${slides.length}`;
     $('current-slide-num').textContent = current + 1;
+    
+    // Update active thumbnail
+    document.querySelectorAll('.thumbnail').forEach((thumb, idx) => {
+        if (idx === current) {
+            thumb.classList.add('active');
+        } else {
+            thumb.classList.remove('active');
+        }
+    });
 }
 
 async function start() {
@@ -65,10 +74,30 @@ function resetStats() {
     $('conf-text').textContent = 'Confidence: 0%';
 }
 
+function generateThumbnails() {
+    const grid = $('thumbnails-grid');
+    grid.innerHTML = '';
+    slides.forEach((slide, idx) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'thumbnail' + (idx === current ? ' active' : '');
+        thumb.innerHTML = `
+            <img src="${slide.image}" alt="Slide ${idx + 1}">
+            <div class="thumbnail-number">${idx + 1}</div>
+        `;
+        thumb.onclick = () => showSlide(idx);
+        grid.appendChild(thumb);
+    });
+}
+
 function bindUi() {
     $('upload-btn').onclick = async () => {
         log('UPLOAD', 'Opening file dialog...');
-        await window.api.openFileDialog();
+        try {
+            const result = await window.api.openFileDialog();
+            log('UPLOAD', `Result: ${result}`);
+        } catch (err) {
+            log('UPLOAD', `Error: ${err.message}`);
+        }
     };
 
     $('reset-btn').onclick = () => {
@@ -85,6 +114,7 @@ function bindUi() {
             log('SLIDES', `Got ${data.total_pages} slides with images`);
             slides = data.slides;
             showSlide(0);
+            generateThumbnails();
             $('total-slides').textContent = slides.length;
             // Auto-start listening when slides load (fast setup flow).
             start();
@@ -129,4 +159,4 @@ function bindUi() {
 }
 
 window.addEventListener('DOMContentLoaded', bindUi);
-showHighlightOnCanvas(data.highlight_keyword);
+// showHighlightOnCanvas(data.highlight_keyword);
