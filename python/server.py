@@ -17,6 +17,7 @@ from logger import get_logger
 from runtime import setup_cuda_dlls
 from audio import Transcriber
 from slides import Slide, SlideMatcher
+from triggers import detect_trigger
 
 log = get_logger("server")
 
@@ -55,6 +56,51 @@ def handle_audio(msg, transcriber, matcher, text_window):
             window_text = " ".join(text_window).strip()
             if window_text:
                 log(f"Text window: {len(text_window)} words")
+                
+                # FAST PATH: Check explicit triggers first (~0.01ms)
+                trigger = detect_trigger(window_text)
+                if trigger:
+                    log(f"TRIGGER DETECTED: {trigger}")
+                    action = trigger["action"]
+                    target = trigger["target"]
+                    
+                    if action == "next" and matcher.current < len(matcher.slides) - 1:
+                        old = matcher.current
+                        matcher.goto(matcher.current + 1)
+                        send({"type": "slide_transition", "from_slide": old, "to_slide": matcher.current,
+                              "confidence": 1.0, "intent": "Voice: Next"})
+                        text_window.clear()
+                        return
+                    elif action == "prev" and matcher.current > 0:
+                        old = matcher.current
+                        matcher.goto(matcher.current - 1)
+                        send({"type": "slide_transition", "from_slide": old, "to_slide": matcher.current,
+                              "confidence": 1.0, "intent": "Voice: Back"})
+                        text_window.clear()
+                        return
+                    elif action == "goto" and target is not None:
+                        old = matcher.current
+                        matcher.goto(target)
+                        send({"type": "slide_transition", "from_slide": old, "to_slide": matcher.current,
+                              "confidence": 1.0, "intent": f"Voice: Go to {target + 1}"})
+                        text_window.clear()
+                        return
+                    elif action == "first":
+                        old = matcher.current
+                        matcher.goto(0)
+                        send({"type": "slide_transition", "from_slide": old, "to_slide": 0,
+                              "confidence": 1.0, "intent": "Voice: First"})
+                        text_window.clear()
+                        return
+                    elif action == "last":
+                        old = matcher.current
+                        matcher.goto(len(matcher.slides) - 1)
+                        send({"type": "slide_transition", "from_slide": old, "to_slide": matcher.current,
+                              "confidence": 1.0, "intent": "Voice: Last"})
+                        text_window.clear()
+                        return
+
+                # SEMANTIC PATH: Embedding-based matching
                 transition = matcher.check(window_text)
                 if transition:
                     log(f"SENDING TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
@@ -63,6 +109,28 @@ def handle_audio(msg, transcriber, matcher, text_window):
 
     if partial:
         send({"type": "partial", "text": " ".join(partial)})
+        
+        # Fast trigger check on partial text for instant response to "next slide" etc.
+        if matcher and len(partial) >= 2:
+            partial_text = " ".join(partial[-5:])  # Last 5 words only
+            trigger = detect_trigger(partial_text)
+            if trigger:
+                log(f"TRIGGER IN PARTIAL: {trigger}")
+                action = trigger["action"]
+                target = trigger["target"]
+                
+                if action == "next" and matcher.current < len(matcher.slides) - 1:
+                    old = matcher.current
+                    matcher.goto(matcher.current + 1)
+                    send({"type": "slide_transition", "from_slide": old, "to_slide": matcher.current,
+                          "confidence": 1.0, "intent": "Voice: Next"})
+                    text_window.clear()
+                elif action == "prev" and matcher.current > 0:
+                    old = matcher.current
+                    matcher.goto(matcher.current - 1)
+                    send({"type": "slide_transition", "from_slide": old, "to_slide": matcher.current,
+                          "confidence": 1.0, "intent": "Voice: Back"})
+                    text_window.clear()
 
 
 def handle_load_slides(msg, text_window):

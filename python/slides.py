@@ -3,6 +3,7 @@ Slide data structures and semantic matching.
 """
 from dataclasses import dataclass, field
 from typing import Optional, List
+from functools import lru_cache
 
 import numpy as np
 
@@ -17,6 +18,20 @@ from embeddings import get_embedding_model
 from logger import get_logger
 
 log = get_logger("slides")
+
+
+# LRU cache for speech embeddings - avoids re-encoding similar text
+@lru_cache(maxsize=64)
+def _cached_encode(text: str) -> tuple:
+    """Cache recent speech embeddings. Returns tuple for hashability."""
+    model = get_embedding_model()
+    emb = model.encode([text], convert_to_numpy=True)[0]
+    return tuple(emb.tolist())
+
+
+def _encode_speech(text: str) -> np.ndarray:
+    """Get embedding with caching."""
+    return np.array(_cached_encode(text), dtype=np.float32)
 
 
 def _normalize_text(title: str, content: str, index: int) -> str:
@@ -103,8 +118,7 @@ class SlideMatcher:
         log(f"Checking: '{text[:50]}...'")
 
         try:
-            embeddings = self.model.encode([text], convert_to_numpy=True)
-            emb = embeddings[0]
+            emb = _encode_speech(text)  # Uses LRU cache
         except Exception as e:
             log(f"Encoding error: {e}, text was: '{text[:100]}'")
             return None

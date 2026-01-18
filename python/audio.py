@@ -9,6 +9,25 @@ from logger import get_logger
 log = get_logger("audio")
 
 
+def _fuzzy_match(w1: str, w2: str) -> bool:
+    """Fast fuzzy match for common ASR variations."""
+    w1, w2 = w1.lower().strip(), w2.lower().strip()
+    if w1 == w2:
+        return True
+    # Handle common contractions/variations without expensive difflib
+    if len(w1) < 3 or len(w2) < 3:
+        return False
+    # Prefix match (e.g., "going" vs "go", "want" vs "wanna")
+    min_len = min(len(w1), len(w2))
+    if min_len >= 3 and w1[:min_len] == w2[:min_len]:
+        return True
+    # One-char difference tolerance for longer words
+    if abs(len(w1) - len(w2)) <= 1 and len(w1) >= 4:
+        diffs = sum(c1 != c2 for c1, c2 in zip(w1, w2))
+        return diffs <= 1
+    return False
+
+
 class Transcriber:
     """Streaming transcription with LocalAgreement for stability."""
 
@@ -45,11 +64,11 @@ class Transcriber:
             if seg.words:
                 words.extend({"word": w.word.strip(), "end": w.end} for w in seg.words)
 
-        # LocalAgreement: confirm words that match previous transcription
+        # LocalAgreement: confirm words that match previous transcription (with fuzzy matching)
         confirmed = []
         if self.last_words and words:
             for last, curr in zip(self.last_words, words):
-                if last["word"].lower() == curr["word"].lower():
+                if _fuzzy_match(last["word"], curr["word"]):
                     confirmed.append(curr["word"])
                 else:
                     break
