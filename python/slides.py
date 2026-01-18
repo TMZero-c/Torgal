@@ -1,5 +1,6 @@
 """
 Slide data structures and semantic matching.
+Prefers current/adjacent slides, with optional non-adjacent overrides.
 """
 from dataclasses import dataclass, field
 from typing import Optional, List
@@ -13,6 +14,10 @@ from config import (
     MATCH_DIFF,
     FORWARD_BIAS_MARGIN,
     BACK_BIAS_MARGIN,
+    STAY_BIAS_MARGIN,
+    ALLOW_NON_ADJACENT,
+    NON_ADJACENT_THRESHOLD,
+    NON_ADJACENT_BOOST,
 )
 from embeddings import get_embedding_model
 from logger import get_logger
@@ -20,7 +25,7 @@ from logger import get_logger
 log = get_logger("slides")
 
 
-# LRU cache for speech embeddings - avoids re-encoding similar text
+# LRU cache for speech embeddings - avoids re-encoding similar windows
 @lru_cache(maxsize=64)
 def _cached_encode(text: str) -> tuple:
     """Cache recent speech embeddings. Returns tuple for hashability."""
@@ -78,6 +83,10 @@ class SlideMatcher:
         diff: float = MATCH_DIFF,
         forward_bias: float = FORWARD_BIAS_MARGIN,
         back_bias: float = BACK_BIAS_MARGIN,
+        stay_bias: float = STAY_BIAS_MARGIN,
+        allow_non_adjacent: bool = ALLOW_NON_ADJACENT,
+        non_adjacent_threshold: float = NON_ADJACENT_THRESHOLD,
+        non_adjacent_boost: float = NON_ADJACENT_BOOST,
     ):
         """
         Args:
@@ -87,6 +96,10 @@ class SlideMatcher:
             diff: Required gap between current and target slide
             forward_bias: Margin to prefer next slide vs global best
             back_bias: Margin to prefer previous slide vs global best
+            stay_bias: Extra margin required to leave current slide
+            allow_non_adjacent: Allow jumps to non-adjacent slides
+            non_adjacent_threshold: Absolute similarity required for jumps
+            non_adjacent_boost: Extra margin over local best for jumps
         """
         log(f"Creating SlideMatcher with {len(slides)} slides")
         log(f"  threshold={threshold}, cooldown={cooldown} words, diff={diff}")
@@ -99,6 +112,10 @@ class SlideMatcher:
         self.diff = diff
         self.forward_bias = forward_bias
         self.back_bias = back_bias
+        self.stay_bias = stay_bias
+        self.allow_non_adjacent = allow_non_adjacent
+        self.non_adjacent_threshold = non_adjacent_threshold
+        self.non_adjacent_boost = non_adjacent_boost
         self.current = 0
         self.words_since = 0
         self.model = get_embedding_model()
@@ -131,25 +148,45 @@ class SlideMatcher:
         next_slide = self.current + 1 if self.current + 1 < len(self.slides) else self.current
         prev_slide = self.current - 1 if self.current > 0 else self.current
 
+        # Consider only current/adjacent slides by default
+        candidates = [self.current]
+        if next_slide != self.current:
+            candidates.append(next_slide)
+        if prev_slide != self.current:
+            candidates.append(prev_slide)
+
+        local_best = max(candidates, key=lambda i: sims[i])
+
         log(f"  Prev slide {prev_slide}: sim={sims[prev_slide]:.3f}")
         log(f"  Current slide {self.current}: sim={sims[self.current]:.3f}")
         log(f"  Next slide {next_slide}: sim={sims[next_slide]:.3f}")
+        log(f"  Local best slide {local_best}: sim={sims[local_best]:.3f}")
         log(f"  Global best slide {best}: sim={sims[best]:.3f}")
 
-        target = best
+        target = local_best
 
         if next_slide != self.current:
-            if sims[next_slide] >= sims[best] - self.forward_bias:
+            if sims[next_slide] >= sims[local_best] - self.forward_bias:
                 target = next_slide
                 log(f"  Forward bias: preferring next slide {next_slide}")
 
-        if prev_slide != self.current and target == best:
-            if sims[prev_slide] >= sims[best] - self.back_bias:
+        if prev_slide != self.current and target == local_best:
+            if sims[prev_slide] >= sims[local_best] - self.back_bias:
                 target = prev_slide
                 log(f"  Back bias: preferring prev slide {prev_slide}")
 
+        if self.allow_non_adjacent and best not in candidates:
+            required = max(sims[local_best] + self.non_adjacent_boost, self.non_adjacent_threshold)
+            if sims[best] >= required:
+                target = best
+                log(f"  Non-adjacent override: slide {best}")
+        elif best not in candidates:
+            log("  Non-adjacent disabled: ignoring global best")
+
         diff = sims[target] - sims[self.current]
-        if target != self.current and sims[target] >= self.threshold and diff >= self.diff:
+        # stay_bias prevents churn when similarities are close
+        required_diff = max(self.diff, self.stay_bias)
+        if target != self.current and sims[target] >= self.threshold and diff >= required_diff:
             old = self.current
             self.current = target
             self.words_since = 0
@@ -162,7 +199,7 @@ class SlideMatcher:
                 "slide_title": self.slides[target].title,
             }
 
-        log(f"  → No transition (need diff>={self.diff}, got {diff:.3f})")
+        log(f"  → No transition (need diff>={required_diff:.3f}, got {diff:.3f})")
         return None
 
     def add_words(self, n: int) -> None:

@@ -23,8 +23,11 @@ function showSlide(i) {
 async function start() {
     log('AUDIO', 'Starting microphone capture...');
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Match server sample rate to avoid resampling overhead.
     audioCtx = new AudioContext({ sampleRate: 16000 });
     source = audioCtx.createMediaStreamSource(stream);
+    // ScriptProcessor is deprecated but low-latency and simple here.
+    // 4096 frames at 16kHz ≈ 256ms chunks.
     processor = audioCtx.createScriptProcessor(4096, 1, 1);
     processor.onaudioprocess = e => {
         const f32 = e.inputBuffer.getChannelData(0);
@@ -32,6 +35,7 @@ async function start() {
         for (let i = 0; i < f32.length; i++) {
             i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
         }
+        // Base64 encode PCM16 for IPC to main process.
         window.api.sendAudioChunk(btoa(String.fromCharCode(...new Uint8Array(i16.buffer))));
     };
     source.connect(processor);
@@ -82,7 +86,8 @@ function bindUi() {
             slides = data.slides;
             showSlide(0);
             $('total-slides').textContent = slides.length;
-            start(); // Auto-start listening when slides load
+            // Auto-start listening when slides load (fast setup flow).
+            start();
         }
     });
 
@@ -106,6 +111,7 @@ function bindUi() {
             $('intent-type').textContent = msg.intent_type ?? '—';
 
             if (conf > 0) {
+                // Track running average for UI feedback.
                 stats.totalConf += conf;
                 stats.count++;
                 stats.matched++;

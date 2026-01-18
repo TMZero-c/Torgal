@@ -3,6 +3,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const projectRoot = path.join(__dirname, '..');
+// Windows venv path; update if you move the env or run on macOS/Linux.
 const pythonPath = path.join(projectRoot, '.venv', 'Scripts', 'python.exe');
 const serverScript = path.join(projectRoot, 'python', 'server.py');
 
@@ -10,10 +11,10 @@ let python = null;
 let presenterWin = null;
 let slideshowWin = null;
 
-// Debug logging
+// Debug logging (tags make tracing main/renderer easier)
 const log = (tag, msg) => console.log(`[main.js] [${tag}] ${msg}`);
 
-// Broadcast to both windows
+// Broadcast to both windows (presenter + slideshow)
 function broadcast(channel, data) {
   [presenterWin, slideshowWin].forEach(win => {
     if (win && !win.isDestroyed()) win.webContents.send(channel, data);
@@ -21,6 +22,7 @@ function broadcast(channel, data) {
 }
 
 function startPython() {
+  // Python server streams newline-delimited JSON on stdout.
   log('STARTUP', 'Spawning Python server...');
   python = spawn(pythonPath, [serverScript]);
 
@@ -47,6 +49,7 @@ function startPython() {
 
 function sendToPython(msg) {
   if (python) {
+    // Avoid spamming logs with audio chunks.
     if (msg.type !== 'audio') log('TO_PYTHON', `${msg.type}`);
     python.stdin.write(JSON.stringify(msg) + '\n');
   }
@@ -72,6 +75,7 @@ ipcMain.handle('dialog:openFile', async () => {
 });
 
 function runSlideParser(filePath) {
+  // Parse slides in a short-lived Python process (returns images + text).
   log('PARSE', 'Starting slide parser...');
   const scriptPath = path.join(projectRoot, 'python', 'parse_slides.py');
   const py = spawn(pythonPath, [scriptPath, filePath]);

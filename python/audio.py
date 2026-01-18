@@ -1,5 +1,6 @@
 """
-Streaming transcription logic (LocalAgreement).
+Streaming transcription (LocalAgreement) with fuzzy stability matching.
+Trims confirmed audio to keep latency low while preserving context.
 """
 import numpy as np
 
@@ -10,7 +11,7 @@ log = get_logger("audio")
 
 
 def _fuzzy_match(w1: str, w2: str) -> bool:
-    """Fast fuzzy match for common ASR variations."""
+    """Fast fuzzy match for common ASR variations (low CPU, tolerant to minor drift)."""
     w1, w2 = w1.lower().strip(), w2.lower().strip()
     if w1 == w2:
         return True
@@ -43,10 +44,14 @@ class Transcriber:
         self.buffer = np.concatenate([self.buffer, samples])
         max_samples = self.buffer_seconds * self.sample_rate
         if len(self.buffer) > max_samples:
+            # Sliding window buffer: more seconds = more context, but higher latency.
             self.buffer = self.buffer[-max_samples:]
 
     def process(self):
-        """Returns (confirmed_words, partial_words)."""
+        """Returns (confirmed_words, partial_words).
+
+        Confirmed words are stable across consecutive passes; partial words may change.
+        """
         if len(self.buffer) < self.sample_rate:
             return [], []
 
@@ -73,7 +78,7 @@ class Transcriber:
                 else:
                     break
 
-            # Trim confirmed audio from buffer
+            # Trim confirmed audio from buffer to reduce latency
             if confirmed and words[len(confirmed) - 1]["end"]:
                 trim = int(words[len(confirmed) - 1]["end"] * self.sample_rate)
                 if 0 < trim < len(self.buffer):

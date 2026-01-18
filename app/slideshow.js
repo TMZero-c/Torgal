@@ -1,4 +1,4 @@
-// Slideshow window renderer
+// Slideshow window renderer (display-only, follows transitions)
 let slides = [];
 let currentIndex = 0;
 
@@ -14,6 +14,7 @@ function showSlide(index) {
 }
 
 window.api.onSlidesLoaded((data) => {
+    // Initialize slideshow once slides are parsed.
     if (data.status === 'success' && data.slides?.length) {
         slides = data.slides;
         showSlide(0);
@@ -21,6 +22,7 @@ window.api.onSlidesLoaded((data) => {
 });
 
 window.api.onTranscript((msg) => {
+    // Follow transitions coming from the Python matcher.
     if (msg.type === 'slide_transition' || msg.type === 'slide_set') {
         const idx = msg.to_slide ?? msg.current_slide ?? 0;
         if (idx !== currentIndex) showSlide(idx);

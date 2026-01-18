@@ -3,27 +3,46 @@ Fast explicit trigger phrase detection (runs before embeddings).
 Regex-based, ~0.01ms per check.
 """
 import re
-from typing import Optional, Dict, Any
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
+
+class TriggerAction(str, Enum):
+    NEXT = "next"
+    PREV = "prev"
+    GOTO = "goto"
+    FIRST = "first"
+    LAST = "last"
+
+
+@dataclass(frozen=True)
+class Trigger:
+    action: TriggerAction
+    target: Optional[int] = None
+
 
 # Pre-compiled patterns for speed
+# Note: patterns are anchored to the start to avoid mid-sentence matches.
 _PATTERNS = [
-    (re.compile(r'\b(next|advance)\s*(slide)?\b', re.I), 'next'),
-    (re.compile(r'\b(go\s*)?back\b', re.I), 'prev'),
-    (re.compile(r'\b(previous)\s*(slide)?\b', re.I), 'prev'),
-    (re.compile(r'\blast\s*slide\b', re.I), 'last'),
-    (re.compile(r'\bfirst\s*slide\b', re.I), 'first'),
-    # Number-based patterns - more flexible matching
-    (re.compile(r'\b(?:go\s*to|goto|jump\s*to|jump|skip\s*to|skip)\s*(?:slide\s*)?(\d+)\b', re.I), 'goto'),
-    (re.compile(r'\bslide\s*(\d+)\b', re.I), 'goto'),  # "slide 5" alone
+    (re.compile(r'^\s*(?:please\s+)?(?:go|move|advance|switch)\s*(?:to\s*)?(?:the\s*)?next\s*(?:slide|one)\b', re.I), TriggerAction.NEXT),
+    (re.compile(r'^\s*(?:please\s+)?(?:go|move|switch)\s*back\s*(?:a\s*)?(?:slide|one)\b', re.I), TriggerAction.PREV),
+    (re.compile(r'^\s*(?:please\s+)?(?:previous|prior)\s*slide\b', re.I), TriggerAction.PREV),
+    (re.compile(r'^\s*(?:please\s+)?last\s*slide\b', re.I), TriggerAction.LAST),
+    (re.compile(r'^\s*(?:please\s+)?first\s*slide\b', re.I), TriggerAction.FIRST),
+    # Number-based patterns - explicit jump
+    (re.compile(r'^\s*(?:please\s+)?(?:go|jump|skip)\s*(?:to\s*)?(?:slide\s*)?(\d+)\b', re.I), TriggerAction.GOTO),
+    (re.compile(r'^\s*(?:please\s+)?slide\s*(\d+)\b', re.I), TriggerAction.GOTO),  # "slide 5"
 ]
 
 
-def detect_trigger(text: str) -> Optional[Dict[str, Any]]:
+def detect_trigger(text: str) -> Optional[Trigger]:
     """
-    Check for explicit voice commands. Returns immediately on first match.
+    Check for explicit voice commands (anchored at start of utterance).
+    Returns immediately on first match.
     
     Returns:
-        {"action": "next|prev|goto|first|last", "target": int|None}
+        Trigger(action=..., target=...)
         or None if no trigger found
     """
     text = text.lower().strip()
@@ -34,7 +53,7 @@ def detect_trigger(text: str) -> Optional[Dict[str, Any]]:
         match = pattern.search(text)
         if match:
             target = None
-            if action == 'goto':
+            if action == TriggerAction.GOTO:
                 # For goto patterns, the number is in the first/only capture group
                 groups = match.groups()
                 for g in groups:
@@ -44,6 +63,6 @@ def detect_trigger(text: str) -> Optional[Dict[str, Any]]:
                 # Only return goto if we found a valid number
                 if target is None:
                     continue
-            return {"action": action, "target": target}
+            return Trigger(action=action, target=target)
     
     return None
