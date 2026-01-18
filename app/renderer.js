@@ -1,5 +1,12 @@
 const $ = id => document.getElementById(id);
 
+// Audio pipeline tuning (from app/config.js)
+const appConfig = window.APP_CONFIG ?? {};
+const AUDIO_SAMPLE_RATE = appConfig.audioSampleRate ?? 16000;
+const AUDIO_CHUNK_SIZE = appConfig.audioChunkSize ?? 2048; // Smaller = lower latency, higher CPU
+const SILENCE_RMS_THRESHOLD = appConfig.silenceRmsThreshold ?? 0.012; // Lower = more sensitive
+const SILENCE_SMOOTHING = appConfig.silenceSmoothing ?? 0.8; // 0..1 smoothing factor
+
 let slides = [];
 let current = 0;
 let listening = false;
@@ -8,6 +15,7 @@ let processor;
 let source;
 let stream;
 let stats = { totalConf: 0, count: 0, matched: 0 };
+let lastRms = 0;
 
 const log = (tag, msg) => console.log(`[renderer] [${tag}] ${msg}`);
 
@@ -15,16 +23,16 @@ function showSlide(i) {
     if (!slides.length) return;
     log('UI', `Showing slide ${i + 1}`);
     current = Math.max(0, Math.min(i, slides.length - 1));
-    
+
     const previewImg = $('preview-img');
     if (previewImg) previewImg.src = slides[current].image;
-    
+
     const slideNumber = $('slide-number');
     if (slideNumber) slideNumber.textContent = `${current + 1} / ${slides.length}`;
-    
+
     const currentSlideNum = $('current-slide-num');
     if (currentSlideNum) currentSlideNum.textContent = current + 1;
-    
+
     // Update active thumbnail
     document.querySelectorAll('.thumbnail').forEach((thumb, idx) => {
         if (idx === current) {
@@ -39,19 +47,30 @@ async function start() {
     log('AUDIO', 'Starting microphone capture...');
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     // Match server sample rate to avoid resampling overhead.
-    audioCtx = new AudioContext({ sampleRate: 16000 });
+    audioCtx = new AudioContext({ sampleRate: AUDIO_SAMPLE_RATE });
     source = audioCtx.createMediaStreamSource(stream);
     // ScriptProcessor is deprecated but low-latency and simple here.
-    // 4096 frames at 16kHz ≈ 256ms chunks.
-    processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    // 2048 frames at 16kHz ≈ 128ms chunks.
+    processor = audioCtx.createScriptProcessor(AUDIO_CHUNK_SIZE, 1, 1);
     processor.onaudioprocess = e => {
         const f32 = e.inputBuffer.getChannelData(0);
+        // Compute RMS for basic silence detection.
+        let sum = 0;
+        for (let i = 0; i < f32.length; i++) sum += f32[i] * f32[i];
+        const rms = Math.sqrt(sum / f32.length);
+        // Smooth RMS to avoid jitter in silent/voiced decisions.
+        lastRms = lastRms * SILENCE_SMOOTHING + rms * (1 - SILENCE_SMOOTHING);
+
         const i16 = new Int16Array(f32.length);
         for (let i = 0; i < f32.length; i++) {
             i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
         }
         // Base64 encode PCM16 for IPC to main process.
-        window.api.sendAudioChunk(btoa(String.fromCharCode(...new Uint8Array(i16.buffer))));
+        window.api.sendAudioChunk({
+            data: btoa(String.fromCharCode(...new Uint8Array(i16.buffer))),
+            rms: Number(lastRms.toFixed(4)),
+            silent: lastRms < SILENCE_RMS_THRESHOLD
+        });
     };
     source.connect(processor);
     processor.connect(audioCtx.destination);
@@ -98,12 +117,12 @@ function generateThumbnails() {
 function bindUi() {
     const uploadBtn = $('upload-btn');
     const resetBtn = $('reset-btn');
-    
+
     if (!uploadBtn) {
         console.error('[ERROR] upload-btn not found in DOM');
         return;
     }
-    
+
     uploadBtn.onclick = async () => {
         log('UPLOAD', 'Opening file dialog...');
         try {
@@ -123,7 +142,7 @@ function bindUi() {
 
     const prevBtn = $('prev-btn');
     const nextBtn = $('next-btn');
-    
+
     if (prevBtn) prevBtn.onclick = () => { if (current > 0) showSlide(current - 1); };
     if (nextBtn) nextBtn.onclick = () => { if (current < slides.length - 1) showSlide(current + 1); };
 
@@ -136,11 +155,11 @@ function bindUi() {
             if ($('thumbnails-grid')) generateThumbnails();
             const totalSlides = $('total-slides');
             if (totalSlides) totalSlides.textContent = slides.length;
-            
+
             // Hide placeholder
             const placeholder = $('placeholder');
             if (placeholder) placeholder.classList.add('hidden');
-            
+
             if ($('upload-btn')) start(); // Auto-start listening when slides load
         }
     });
@@ -163,13 +182,13 @@ function bindUi() {
             const conf = Math.round((msg.confidence ?? 0) * 100);
             const confBar = $('conf-bar');
             if (confBar) confBar.style.width = conf + '%';
-            
+
             const confText = $('conf-text');
             if (confText) confText.textContent = `Confidence: ${conf}%`;
-            
+
             const intentLabel = $('intent-label');
             if (intentLabel) intentLabel.textContent = msg.intent ?? 'Slide Transition';
-            
+
             const intentType = $('intent-type');
             if (intentType) intentType.textContent = msg.intent_type ?? '—';
 
@@ -180,7 +199,7 @@ function bindUi() {
                 stats.matched++;
                 const totalConf = $('total-conf');
                 if (totalConf) totalConf.textContent = Math.round(stats.totalConf / stats.count) + '%';
-                
+
                 const slidesMatched = $('slides-matched');
                 if (slidesMatched) slidesMatched.textContent = stats.matched;
             }

@@ -55,7 +55,14 @@ function sendToPython(msg) {
   }
 }
 
-ipcMain.on('audio-chunk', (_, data) => sendToPython({ type: 'audio', data }));
+ipcMain.on('audio-chunk', (_, payload) => {
+  // Payload can be a base64 string or an object with rms/silence metadata.
+  if (typeof payload === 'string') {
+    sendToPython({ type: 'audio', data: payload });
+  } else {
+    sendToPython({ type: 'audio', ...payload });
+  }
+});
 ipcMain.on('reset', () => sendToPython({ type: 'reset' }));
 ipcMain.on('goto-slide', (_, index) => sendToPython({ type: 'goto_slide', index }));
 
@@ -65,7 +72,7 @@ ipcMain.handle('dialog:openFile', async () => {
     log('UPLOAD', 'ERROR: presenterWin is not defined');
     return null;
   }
-  
+
   const { canceled, filePaths } = await dialog.showOpenDialog(presenterWin, {
     properties: ['openFile'],
     filters: [{ name: 'Presentations', extensions: ['pdf', 'pptx'] }]

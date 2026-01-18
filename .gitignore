@@ -3,3 +3,4 @@
 /.venv
 /app/out/
 /python/config.py
+/app/config.js

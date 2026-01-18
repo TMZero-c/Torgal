@@ -16,6 +16,8 @@ from config import (
     WHISPER_DEVICE,
     WHISPER_COMPUTE_TYPE,
     WINDOW_WORDS,
+    RECENT_WORDS_COUNT,
+    RECENT_WORDS_MULTIPLIER,
     TRIGGER_COOLDOWN_MS,
     TRIGGER_TAIL_WORDS,
     TRIGGER_MIN_WORDS_BETWEEN,
@@ -63,6 +65,16 @@ def send(msg):
 def send_type(msg_type: IpcType, **payload):
     payload["type"] = msg_type.value
     send(payload)
+
+
+def _weighted_text(window_text: str, words: list[str]) -> str:
+    """Emphasize recent words by repeating the tail (lightweight recency bias)."""
+    if RECENT_WORDS_MULTIPLIER <= 1 or RECENT_WORDS_COUNT <= 0 or not words:
+        return window_text
+    tail = " ".join(words[-RECENT_WORDS_COUNT:]).strip()
+    if not tail:
+        return window_text
+    return " ".join([window_text] + [tail] * (RECENT_WORDS_MULTIPLIER - 1)).strip()
 
 
 def build_whisper_model():
@@ -160,7 +172,8 @@ def _process_words(words, matcher, text_window, command_state) -> None:
         ):
             return
 
-    transition = matcher.check(window_text)
+    weighted_text = _weighted_text(window_text, text_window)
+    transition = matcher.check(weighted_text)
     if transition:
         log(f"SENDING TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
         send_type(IpcType.SLIDE_TRANSITION, **transition)
@@ -168,8 +181,12 @@ def _process_words(words, matcher, text_window, command_state) -> None:
 
 
 def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandState, speech_state: SpeechState):
-    transcriber.add_audio(base64.b64decode(msg["data"]))
-    confirmed, partial = transcriber.process()
+    silent = bool(msg.get("silent"))
+    if not silent:
+        transcriber.add_audio(base64.b64decode(msg["data"]))
+        confirmed, partial = transcriber.process()
+    else:
+        confirmed, partial = [], []
     now = time.monotonic()
 
     confirmed = [w for w in confirmed if w and w.strip()]

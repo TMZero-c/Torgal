@@ -3,8 +3,9 @@ Slide data structures and semantic matching.
 Prefers current/adjacent slides, with optional non-adjacent overrides.
 """
 from dataclasses import dataclass, field
-from typing import Optional, List
+from typing import Optional, List, Set
 from functools import lru_cache
+import re
 
 import numpy as np
 
@@ -18,11 +19,26 @@ from config import (
     ALLOW_NON_ADJACENT,
     NON_ADJACENT_THRESHOLD,
     NON_ADJACENT_BOOST,
+    KEYWORD_BOOST,
+    KEYWORD_MIN_TOKENS,
 )
 from embeddings import get_embedding_model
 from logger import get_logger
 
 log = get_logger("slides")
+
+
+_STOPWORDS = {
+    "the", "a", "an", "and", "or", "but", "to", "of", "in", "on", "for", "with",
+    "as", "by", "is", "it", "this", "that", "these", "those", "are", "was", "were",
+    "be", "been", "being", "at", "from", "we", "you", "they", "i", "he", "she",
+    "our", "your", "their", "my", "me", "us", "so", "if", "then", "than", "too",
+}
+
+
+def _tokenize(text: str) -> Set[str]:
+    tokens = re.findall(r"[a-z0-9']+", (text or "").lower())
+    return {t for t in tokens if len(t) > 2 and t not in _STOPWORDS}
 
 
 # LRU cache for speech embeddings - avoids re-encoding similar windows
@@ -62,6 +78,7 @@ class Slide:
     title: str
     content: str
     embedding: np.ndarray = field(default=None, repr=False)  # type: ignore
+    tokens: Set[str] = field(default_factory=set, repr=False)
 
     def __post_init__(self):
         if self.embedding is None:
@@ -71,6 +88,7 @@ class Slide:
             model = get_embedding_model()
             embeddings = model.encode([text], convert_to_numpy=True)
             self.embedding = embeddings[0]
+            self.tokens = _tokenize(text)
             log(f"  → {self.embedding.shape[0]}-dim vector")
 
 
@@ -144,7 +162,27 @@ class SlideMatcher:
             np.linalg.norm(self._embeddings, axis=1) * np.linalg.norm(emb) + 1e-8
         )
 
-        best = int(np.argmax(sims))
+        # Optionally boost slides that share keywords with the spoken text.
+        sims_used = sims
+        speech_tokens = _tokenize(text)
+        if KEYWORD_BOOST > 0 and len(speech_tokens) >= KEYWORD_MIN_TOKENS:
+            sims_used = sims.copy()
+            boost_indices = {self.current}
+            next_idx = self.current + 1 if self.current + 1 < len(self.slides) else self.current
+            prev_idx = self.current - 1 if self.current > 0 else self.current
+            if next_idx != self.current:
+                boost_indices.add(next_idx)
+            if prev_idx != self.current:
+                boost_indices.add(prev_idx)
+            if self.allow_non_adjacent:
+                boost_indices.add(int(np.argmax(sims)))
+
+            for idx in boost_indices:
+                overlap = len(speech_tokens & self.slides[idx].tokens) / max(len(speech_tokens), 1)
+                if overlap > 0:
+                    sims_used[idx] = min(1.0, sims_used[idx] + KEYWORD_BOOST * overlap)
+
+        best = int(np.argmax(sims_used))
         next_slide = self.current + 1 if self.current + 1 < len(self.slides) else self.current
         prev_slide = self.current - 1 if self.current > 0 else self.current
 
@@ -155,38 +193,38 @@ class SlideMatcher:
         if prev_slide != self.current:
             candidates.append(prev_slide)
 
-        local_best = max(candidates, key=lambda i: sims[i])
+        local_best = max(candidates, key=lambda i: sims_used[i])
 
-        log(f"  Prev slide {prev_slide}: sim={sims[prev_slide]:.3f}")
-        log(f"  Current slide {self.current}: sim={sims[self.current]:.3f}")
-        log(f"  Next slide {next_slide}: sim={sims[next_slide]:.3f}")
-        log(f"  Local best slide {local_best}: sim={sims[local_best]:.3f}")
-        log(f"  Global best slide {best}: sim={sims[best]:.3f}")
+        log(f"  Prev slide {prev_slide}: sim={sims_used[prev_slide]:.3f}")
+        log(f"  Current slide {self.current}: sim={sims_used[self.current]:.3f}")
+        log(f"  Next slide {next_slide}: sim={sims_used[next_slide]:.3f}")
+        log(f"  Local best slide {local_best}: sim={sims_used[local_best]:.3f}")
+        log(f"  Global best slide {best}: sim={sims_used[best]:.3f}")
 
         target = local_best
 
         if next_slide != self.current:
-            if sims[next_slide] >= sims[local_best] - self.forward_bias:
+            if sims_used[next_slide] >= sims_used[local_best] - self.forward_bias:
                 target = next_slide
                 log(f"  Forward bias: preferring next slide {next_slide}")
 
         if prev_slide != self.current and target == local_best:
-            if sims[prev_slide] >= sims[local_best] - self.back_bias:
+            if sims_used[prev_slide] >= sims_used[local_best] - self.back_bias:
                 target = prev_slide
                 log(f"  Back bias: preferring prev slide {prev_slide}")
 
         if self.allow_non_adjacent and best not in candidates:
-            required = max(sims[local_best] + self.non_adjacent_boost, self.non_adjacent_threshold)
-            if sims[best] >= required:
+            required = max(sims_used[local_best] + self.non_adjacent_boost, self.non_adjacent_threshold)
+            if sims_used[best] >= required:
                 target = best
                 log(f"  Non-adjacent override: slide {best}")
         elif best not in candidates:
             log("  Non-adjacent disabled: ignoring global best")
 
-        diff = sims[target] - sims[self.current]
+        diff = sims_used[target] - sims_used[self.current]
         # stay_bias prevents churn when similarities are close
         required_diff = max(self.diff, self.stay_bias)
-        if target != self.current and sims[target] >= self.threshold and diff >= required_diff:
+        if target != self.current and sims_used[target] >= self.threshold and diff >= required_diff:
             old = self.current
             self.current = target
             self.words_since = 0
@@ -195,7 +233,7 @@ class SlideMatcher:
                 "type": "slide_transition",
                 "from_slide": old,
                 "to_slide": target,
-                "confidence": float(sims[target]),
+                "confidence": float(sims_used[target]),
                 "slide_title": self.slides[target].title,
             }
 

@@ -2,7 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
     // Audio streaming (renderer → main → Python)
-    sendAudioChunk: (base64) => ipcRenderer.send('audio-chunk', base64),
+    // Payload can be string (base64) or object { data, rms, silent }
+    sendAudioChunk: (payload) => ipcRenderer.send('audio-chunk', payload),
     reset: () => ipcRenderer.send('reset'),
     gotoSlide: (index) => ipcRenderer.send('goto-slide', index),
     onTranscript: (cb) => ipcRenderer.on('transcript', (_, msg) => cb(msg)),
