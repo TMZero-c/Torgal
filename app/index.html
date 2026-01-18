@@ -13,6 +13,9 @@
     <p id="status"></p>
     <p id="output"></p>
 
+    <button id="upload-btn">Upload Presentation (PDF/PPTX)</button>
+    <p id="file-status">No file selected</p>
+
     <script>
         let mediaRecorder, chunks = [];
         const btn = document.getElementById('btn');
@@ -43,6 +46,17 @@
                 status.textContent = 'Recording...';
             }
         };
+
+        const uploadBtn = document.getElementById('upload-btn');
+        const fileStatus = document.getElementById('file-status');
+        
+        uploadBtn.onclick = async () => {
+            const filePath = await window.electronAPI.openFileDialog();
+            if (filePath) {
+                fileStatus.textContent = `Selected: ${filePath}`;
+            }
+        };
+        
     </script>
 </body>
 
