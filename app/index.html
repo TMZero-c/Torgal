@@ -4,164 +4,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Slide Co-Pilot</title>
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self';" />
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: -apple-system, system-ui, sans-serif;
-            padding: 16px;
-            background: #fff;
-            color: #111;
-        }
-
-        header {
-            margin-bottom: 16px;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 12px;
-        }
-
-        h1 {
-            font-size: 16px;
-            font-weight: 500;
-        }
-
-        #upload {
-            margin-bottom: 12px;
-        }
-
-        #upload button {
-            background: none;
-            border: 1px solid #999;
-            padding: 6px 12px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        #upload button:hover {
-            border-color: #333;
-        }
-
-        #file-status {
-            margin-left: 10px;
-            color: #666;
-            font-size: 12px;
-        }
-
-        #slide-viewer {
-            display: none;
-            border: 1px solid #ddd;
-            margin-bottom: 12px;
-        }
-
-        #slide-image {
-            width: 100%;
-            display: block;
-        }
-
-        #slide-nav {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
-            background: #f5f5f5;
-            font-size: 12px;
-        }
-
-        #slide-nav button {
-            background: none;
-            border: 1px solid #ccc;
-            padding: 4px 10px;
-            cursor: pointer;
-        }
-
-        #controls {
-            margin-bottom: 12px;
-        }
-
-        #btn {
-            padding: 8px 16px;
-            font-size: 13px;
-            cursor: pointer;
-            border: none;
-            background: #111;
-            color: #fff;
-        }
-
-        #btn.on {
-            background: #c00;
-        }
-
-        #status {
-            margin-left: 10px;
-            color: #666;
-            font-size: 12px;
-        }
-
-        #transcript {
-            border: 1px solid #ddd;
-            padding: 10px;
-            min-height: 50px;
-            max-height: 80px;
-            overflow-y: auto;
-            font-size: 13px;
-            font-family: monospace;
-        }
-
-        #partial {
-            color: #999;
-            font-size: 12px;
-            margin-top: 4px;
-        }
-
-        #info {
-            margin-top: 10px;
-            padding: 8px;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            font-size: 12px;
-        }
-
-        #info.triggered {
-            background: #efffef;
-            border-color: #090;
-        }
-    </style>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self'; style-src 'self';">
+    <title>Presenter</title>
+    <link rel="stylesheet" href="styles/presenter.css">
 </head>
 
 <body>
-    <header>
-        <h1>Slide Co-Pilot</h1>
-    </header>
+    <div class="container">
+        <div class="left-panel">
+            <div class="slide-preview">
+                <img id="preview-img" src="" alt="Current Slide">
+            </div>
 
-    <div id="upload">
-        <button id="upload-btn">Upload PDF/PPTX</button>
-        <span id="file-status">No file</span>
-    </div>
+            <div class="controls">
+                <button id="upload-btn">Upload Presentation</button>
+                <button id="reset-btn">Reset</button>
+            </div>
 
-    <div id="slide-viewer">
-        <img id="slide-image" src="">
-        <div id="slide-nav">
-            <button id="prev-btn">← Prev</button>
-            <span id="slide-counter">1 / 1</span>
-            <button id="next-btn">Next →</button>
+            <div class="slide-counter"><span id="slide-number">0 / 0</span></div>
+            <div class="slide-nav">
+                <button id="prev-btn">← Prev</button>
+                <button id="next-btn">Next →</button>
+            </div>
+
+            <div class="transcript-panel">
+                <h3>Transcript</h3>
+                <div id="transcript-partial" class="transcript-text partial">Listening...</div>
+                <div id="transcript-final" class="transcript-text"></div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="intent-card">
+                <h4>Intent & Confidence</h4>
+                <div class="intent-label" id="intent-label">Listening...</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="conf-bar"></div>
+                </div>
+                <div id="conf-text" class="stat-detail">Confidence: 0%</div>
+            </div>
+
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h4>Total Confidence</h4>
+                    <div class="stat-value" id="total-conf">0%</div>
+                    <div class="stat-detail">Average confidence</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Slides Matched</h4>
+                    <div class="stat-value" id="slides-matched">0</div>
+                    <div class="stat-detail">Total transitions</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Current Slide</h4>
+                    <div class="stat-value" id="current-slide-num">1</div>
+                    <div class="stat-detail">of <span id="total-slides">0</span></div>
+                </div>
+                <div class="stat-card">
+                    <h4>Intent Type</h4>
+                    <div class="intent-label" id="intent-type">—</div>
+                </div>
+            </div>
+
+            <div class="intent-card">
+                <h4>Detected Keywords</h4>
+                <div id="keywords-container" class="keyword-highlights">
+                    <span class="stat-detail">None detected</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="controls">
-        <button id="btn">Start</button>
-        <span id="status">Load slides first</span>
-    </div>
-
-    <div id="transcript"></div>
-    <div id="partial"></div>
-    <div id="info">—</div>
-
     <script src="renderer.js"></script>
+</body>
+
+</html>
 </body>
 
 </html>
