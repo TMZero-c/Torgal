@@ -421,4 +421,18 @@ function bindUi() {
 }
 
 window.addEventListener('DOMContentLoaded', bindUi);
+
+// Keyboard navigation: arrow keys to move slides
+window.addEventListener('keydown', (e) => {
+    if (slides.length === 0) return;
+    
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (current > 0) showSlide(current - 1);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (current < slides.length - 1) showSlide(current + 1);
+    }
+});
+
 // showHighlightOnCanvas(data.highlight_keyword);

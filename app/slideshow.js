@@ -28,3 +28,15 @@ window.api.onTranscript((msg) => {
         if (idx !== currentIndex) showSlide(idx);
     }
 });
+// Keyboard navigation: arrow keys to move slides
+document.addEventListener('keydown', (e) => {
+    if (slides.length === 0) return;
+    
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (currentIndex > 0) showSlide(currentIndex - 1);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentIndex < slides.length - 1) showSlide(currentIndex + 1);
+    }
+});
