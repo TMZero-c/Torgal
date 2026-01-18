@@ -116,7 +116,7 @@ def main():
                     # Check slide transition if slides are loaded
                     if matcher:
                         text_window.extend(confirmed)
-                        text_window = text_window[-25:]
+                        text_window = text_window[-15:]  # Smaller window = more responsive
                         matcher.add_words(len(confirmed))
                         
                         window_text = " ".join(text_window).strip()

@@ -66,12 +66,12 @@ class Slide:
 
 
 class SlideMatcher:
-    def __init__(self, slides: List[Slide], threshold: float = 0.45, cooldown: int = 20):
+    def __init__(self, slides: List[Slide], threshold: float = 0.50, cooldown: int = 8):
         """
         Args:
             slides: List of Slide objects (REQUIRED - no mock data)
-            threshold: Min similarity to trigger transition
-            cooldown: Min words between transitions
+            threshold: Min similarity to trigger transition (raised from 0.45)
+            cooldown: Min words between transitions (lowered from 20)
         """
         log(f"Creating SlideMatcher with {len(slides)} slides")
         log(f"  threshold={threshold}, cooldown={cooldown} words")
@@ -111,23 +111,46 @@ class SlideMatcher:
         )
         
         best = int(np.argmax(sims))
-        log(f"  Current slide {self.current}: sim={sims[self.current]:.3f}")
-        log(f"  Best match slide {best}: sim={sims[best]:.3f}")
+        next_slide = self.current + 1 if self.current + 1 < len(self.slides) else self.current
+        prev_slide = self.current - 1 if self.current > 0 else self.current
         
-        # Transition if different slide is significantly better
-        if best != self.current and sims[best] >= self.threshold and sims[best] - sims[self.current] >= 0.08:
+        log(f"  Prev slide {prev_slide}: sim={sims[prev_slide]:.3f}")
+        log(f"  Current slide {self.current}: sim={sims[self.current]:.3f}")
+        log(f"  Next slide {next_slide}: sim={sims[next_slide]:.3f}")
+        log(f"  Global best slide {best}: sim={sims[best]:.3f}")
+        
+        # NEIGHBOR BIAS: Prefer adjacent slides if they're close to global best
+        # This prevents wild jumping - presentations usually go forward/back one step
+        target = best
+        
+        # Forward bias: prefer next slide if close to best
+        if next_slide != self.current:
+            if sims[next_slide] >= sims[best] - 0.05:
+                target = next_slide
+                log(f"  Forward bias: preferring next slide {next_slide}")
+        
+        # Back bias: prefer prev slide if close to best (slightly stricter - 0.03)
+        # Useful if we accidentally jumped too far
+        if prev_slide != self.current and target == best:
+            if sims[prev_slide] >= sims[best] - 0.03:
+                target = prev_slide
+                log(f"  Back bias: preferring prev slide {prev_slide}")
+        
+        # Need significant improvement to transition
+        diff = sims[target] - sims[self.current]
+        if target != self.current and sims[target] >= self.threshold and diff >= 0.12:
             old = self.current
-            self.current = best
+            self.current = target
             self.words_since = 0
-            log(f"  → TRANSITION! {old} → {best}")
+            log(f"  → TRANSITION! {old} → {target} (diff={diff:.3f})")
             return {
                 "type": "slide_transition",
                 "from_slide": old,
-                "to_slide": best,
-                "confidence": float(sims[best]),
-                "slide_title": self.slides[best].title
+                "to_slide": target,
+                "confidence": float(sims[target]),
+                "slide_title": self.slides[target].title
             }
-        log(f"  → No transition (threshold={self.threshold}, diff needed=0.08)")
+        log(f"  → No transition (need diff>=0.12, got {diff:.3f})")
         return None
     
     def add_words(self, n: int):
