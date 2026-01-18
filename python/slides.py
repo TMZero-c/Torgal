@@ -55,12 +55,29 @@ def _split_sentences(text: str) -> List[str]:
     if not text:
         return []
 
-    # Normalize bullets and line breaks to sentence-like chunks
-    normalized = text.replace("•", "\n").replace("- ", "\n")
-    lines = [ln.strip() for ln in re.split(r"[\n\r]+", normalized) if ln.strip()]
+    # Split into raw lines first
+    raw_lines = [ln.strip() for ln in re.split(r"[\n\r]+", text) if ln.strip()]
+
+    # Bullet pattern: lines starting with •, -, *, or number followed by . or )
+    bullet_pattern = re.compile(r"^(?:[•\-\*]|\d+[.\)])\s*")
+
+    # Join continuation lines (non-bullet lines) to the previous bullet
+    merged_lines: List[str] = []
+    for line in raw_lines:
+        if bullet_pattern.match(line):
+            # New bullet - strip the marker and start a new logical line
+            cleaned = bullet_pattern.sub("", line).strip()
+            if cleaned:
+                merged_lines.append(cleaned)
+        elif merged_lines:
+            # Continuation of previous bullet - append to it
+            merged_lines[-1] = merged_lines[-1] + " " + line
+        else:
+            # First line isn't a bullet, keep as-is
+            merged_lines.append(line)
 
     sentences: List[str] = []
-    for line in lines:
+    for line in merged_lines:
         parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", line) if p.strip()]
         for part in parts:
             if len(part) < SENTENCE_MIN_CHARS:
@@ -345,6 +362,10 @@ class SlideMatcher:
             and diff >= required_diff
             and not cooldown_blocked
         )
+
+        # If not transitioning, the actual decision is to stay
+        if not would_transition:
+            intent = "stay"
 
         def _format_option_label(idx: int) -> str:
             slide_num = idx + 1
