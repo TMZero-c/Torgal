@@ -15,9 +15,15 @@ function showSlide(i) {
     if (!slides.length) return;
     log('UI', `Showing slide ${i + 1}`);
     current = Math.max(0, Math.min(i, slides.length - 1));
-    $('preview-img').src = slides[current].image;
-    $('slide-number').textContent = `${current + 1} / ${slides.length}`;
-    $('current-slide-num').textContent = current + 1;
+    
+    const previewImg = $('preview-img');
+    if (previewImg) previewImg.src = slides[current].image;
+    
+    const slideNumber = $('slide-number');
+    if (slideNumber) slideNumber.textContent = `${current + 1} / ${slides.length}`;
+    
+    const currentSlideNum = $('current-slide-num');
+    if (currentSlideNum) currentSlideNum.textContent = current + 1;
     
     // Update active thumbnail
     document.querySelectorAll('.thumbnail').forEach((thumb, idx) => {
@@ -90,7 +96,15 @@ function generateThumbnails() {
 }
 
 function bindUi() {
-    $('upload-btn').onclick = async () => {
+    const uploadBtn = $('upload-btn');
+    const resetBtn = $('reset-btn');
+    
+    if (!uploadBtn) {
+        console.error('[ERROR] upload-btn not found in DOM');
+        return;
+    }
+    
+    uploadBtn.onclick = async () => {
         log('UPLOAD', 'Opening file dialog...');
         try {
             const result = await window.api.openFileDialog();
@@ -100,13 +114,18 @@ function bindUi() {
         }
     };
 
-    $('reset-btn').onclick = () => {
-        stop();
-        resetStats();
-    };
+    if (resetBtn) {
+        resetBtn.onclick = () => {
+            stop();
+            resetStats();
+        };
+    }
 
-    $('prev-btn').onclick = () => { if (current > 0) showSlide(current - 1); };
-    $('next-btn').onclick = () => { if (current < slides.length - 1) showSlide(current + 1); };
+    const prevBtn = $('prev-btn');
+    const nextBtn = $('next-btn');
+    
+    if (prevBtn) prevBtn.onclick = () => { if (current > 0) showSlide(current - 1); };
+    if (nextBtn) nextBtn.onclick = () => { if (current < slides.length - 1) showSlide(current + 1); };
 
     window.api.onSlidesLoaded(data => {
         log('SLIDES', `Received slides-loaded event: ${data.status}`);
@@ -114,10 +133,15 @@ function bindUi() {
             log('SLIDES', `Got ${data.total_pages} slides with images`);
             slides = data.slides;
             showSlide(0);
-            generateThumbnails();
-            $('total-slides').textContent = slides.length;
-            // Auto-start listening when slides load (fast setup flow).
-            start();
+            if ($('thumbnails-grid')) generateThumbnails();
+            const totalSlides = $('total-slides');
+            if (totalSlides) totalSlides.textContent = slides.length;
+            
+            // Hide placeholder
+            const placeholder = $('placeholder');
+            if (placeholder) placeholder.classList.add('hidden');
+            
+            if ($('upload-btn')) start(); // Auto-start listening when slides load
         }
     });
 
@@ -125,34 +149,49 @@ function bindUi() {
         log('MSG', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
 
         if (msg.type === 'partial') {
-            $('transcript-partial').textContent = msg.text;
+            const transcriptPartial = $('transcript-partial');
+            if (transcriptPartial) transcriptPartial.textContent = msg.text;
         } else if (msg.type === 'final') {
             const final = $('transcript-final');
-            final.textContent += (final.textContent ? '\n' : '') + msg.text;
-            $('transcript-partial').textContent = '';
+            if (final) final.textContent += (final.textContent ? '\n' : '') + msg.text;
+            const transcriptPartial = $('transcript-partial');
+            if (transcriptPartial) transcriptPartial.textContent = '';
         } else if (msg.type === 'slide_transition' || msg.type === 'slide_set') {
             const idx = msg.to_slide ?? msg.current_slide ?? 0;
             showSlide(idx);
 
             const conf = Math.round((msg.confidence ?? 0) * 100);
-            $('conf-bar').style.width = conf + '%';
-            $('conf-text').textContent = `Confidence: ${conf}%`;
-            $('intent-label').textContent = msg.intent ?? 'Slide Transition';
-            $('intent-type').textContent = msg.intent_type ?? '—';
+            const confBar = $('conf-bar');
+            if (confBar) confBar.style.width = conf + '%';
+            
+            const confText = $('conf-text');
+            if (confText) confText.textContent = `Confidence: ${conf}%`;
+            
+            const intentLabel = $('intent-label');
+            if (intentLabel) intentLabel.textContent = msg.intent ?? 'Slide Transition';
+            
+            const intentType = $('intent-type');
+            if (intentType) intentType.textContent = msg.intent_type ?? '—';
 
             if (conf > 0) {
                 // Track running average for UI feedback.
                 stats.totalConf += conf;
                 stats.count++;
                 stats.matched++;
-                $('total-conf').textContent = Math.round(stats.totalConf / stats.count) + '%';
-                $('slides-matched').textContent = stats.matched;
+                const totalConf = $('total-conf');
+                if (totalConf) totalConf.textContent = Math.round(stats.totalConf / stats.count) + '%';
+                
+                const slidesMatched = $('slides-matched');
+                if (slidesMatched) slidesMatched.textContent = stats.matched;
             }
 
             if (msg.keywords?.length) {
-                $('keywords-container').innerHTML = msg.keywords.map(kw =>
-                    `<span class="keyword-tag">${kw}</span>`
-                ).join('');
+                const keywordsContainer = $('keywords-container');
+                if (keywordsContainer) {
+                    keywordsContainer.innerHTML = msg.keywords.map(kw =>
+                        `<span class="keyword-tag">${kw}</span>`
+                    ).join('');
+                }
             }
         }
     });
