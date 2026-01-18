@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('api', {
     reset: () => ipcRenderer.send('reset'),
     gotoSlide: (index) => ipcRenderer.send('goto-slide', index),
     onTranscript: (cb) => ipcRenderer.on('transcript', (_, msg) => cb(msg)),
-    
+
     // File upload
     openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
     onSlidesLoaded: (cb) => ipcRenderer.on('slides-loaded', (_, data) => cb(data))

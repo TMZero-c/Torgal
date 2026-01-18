@@ -33,33 +33,16 @@ class Slide:
             self.embedding = model.encode(f"{self.title}. {self.content}", convert_to_numpy=True)
 
 
-# Mock slides for testing - replace with real slide parsing later
-MOCK_SLIDES = [
-    ("Introduction to Machine Learning", 
-     "Machine learning is a subset of AI that allows computers to learn from data."),
-    ("Supervised Learning", 
-     "Supervised learning uses labeled data. Common algorithms include regression and decision trees."),
-    ("Unsupervised Learning", 
-     "Unsupervised learning finds patterns in unlabeled data using clustering like K-means."),
-    ("Neural Networks", 
-     "Neural networks have layers of neurons. Deep learning uses many hidden layers."),
-    ("Training Process", 
-     "Training uses backpropagation and gradient descent to minimize the loss function."),
-    ("Conclusion", 
-     "We covered supervised and unsupervised learning fundamentals today."),
-]
-
-
 class SlideMatcher:
-    def __init__(self, slides: List[Slide] = None, threshold: float = 0.45, cooldown: int = 20): # type: ignore
+    def __init__(self, slides: List[Slide], threshold: float = 0.45, cooldown: int = 20):
         """
         Args:
-            slides: List of Slide objects (uses mock data if None)
+            slides: List of Slide objects (REQUIRED - no mock data)
             threshold: Min similarity to trigger transition
             cooldown: Min words between transitions
         """
-        if slides is None:
-            slides = [Slide(i, t, c) for i, (t, c) in enumerate(MOCK_SLIDES)]
+        if not slides:
+            raise ValueError("slides list is required")
         
         self.slides = slides
         self.threshold = threshold

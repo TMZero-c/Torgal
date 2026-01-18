@@ -17,11 +17,13 @@ def parse_slides(file_path):
             
             # Extract text
             text = page.get_text()
+            first_line = text.split('\n')[0].strip()[:60] if text.strip() else f"Slide {i+1}"
             
             slides.append({
                 "page": i + 1,
-                "image": f"data:image/png;base64,{image_base64}",
-                "text": text
+                "title": first_line,
+                "content": text,
+                "image": f"data:image/png;base64,{image_base64}"
             })
         
         result = {
