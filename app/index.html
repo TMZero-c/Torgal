@@ -26,9 +26,8 @@
             <div class="controls">
                 <button id="upload-btn">Upload Presentation</button>
                 <!-- <button id="reset-btn">Reset</button> -->
+                <div class="slide-counter"><span id="slide-number">0 / 0</span></div>
             </div>
-
-            <div class="slide-counter"><span id="slide-number">0 / 0</span></div>
 
             <div class="thumbnails-grid" id="thumbnails-grid">
                 <!-- Thumbnails will be inserted here -->
@@ -38,12 +37,20 @@
         <div class="right-panel">
 
             <div class="intent-card">
-                <h4>Intent & Confidence</h4>
+                <h4>Intent Spectrum</h4>
                 <div class="intent-label" id="intent-label">Listening...</div>
-                <div class="confidence-bar">
-                    <div class="confidence-fill" id="conf-bar"></div>
+                <div class="spectrum-container">
+                    <div class="spectrum-bar">
+                        <div class="spectrum-neutral-line"></div>
+                        <div class="spectrum-fill" id="spectrum-fill"></div>
+                    </div>
+                    <div class="spectrum-labels">
+                        <span>Backward</span>
+                        <span>Neutral</span>
+                        <span>Forward</span>
+                    </div>
                 </div>
-                <div id="conf-text" class="stat-detail">Confidence: 0%</div>
+                <div id="spectrum-text" class="stat-detail">Intent: 0</div>
             </div>
 
             <div class="stats-container">
@@ -81,6 +88,13 @@
                 </div>
             </div>
         -->
+
+            <div class="keywords-impact-card">
+                <h4>Intent-Changing Keywords</h4>
+                <div id="keywords-impact-container" class="keywords-impact">
+                    <span class="stat-detail">Waiting for keywords...</span>
+                </div>
+            </div>
 
             <div class="transcript-panel">
                 <h3>Transcript</h3>

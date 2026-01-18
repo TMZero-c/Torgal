@@ -95,8 +95,16 @@ function resetStats() {
     $('transcript-final').textContent = '';
     $('transcript-partial').textContent = 'Listening...';
     $('intent-label').textContent = 'Listening...';
-    $('conf-bar').style.width = '0%';
-    $('conf-text').textContent = 'Confidence: 0%';
+    const spectrumFill = $('spectrum-fill');
+    if (spectrumFill) {
+        spectrumFill.style.left = '50%';
+        spectrumFill.style.width = '0%';
+    }
+    const spectrumText = $('spectrum-text');
+    if (spectrumText) spectrumText.textContent = 'Intent: 0';
+    
+    const keywordsImpact = $('keywords-impact-container');
+    if (keywordsImpact) keywordsImpact.innerHTML = '<span class="stat-detail">Waiting for keywords...</span>';
 }
 
 function generateThumbnails() {
@@ -179,12 +187,31 @@ function bindUi() {
             const idx = msg.to_slide ?? msg.current_slide ?? 0;
             showSlide(idx);
 
-            const conf = Math.round((msg.confidence ?? 0) * 100);
-            const confBar = $('conf-bar');
-            if (confBar) confBar.style.width = conf + '%';
-
-            const confText = $('conf-text');
-            if (confText) confText.textContent = `Confidence: ${conf}%`;
+            // Update spectrum meter based on intent direction
+            // intent should be something like "go forward" or "go backward" or "stay"
+            let intentValue = 0; // -1 to 1
+            const intentText = msg.intent ? msg.intent.toLowerCase() : '';
+            
+            if (intentText.includes('backward') || intentText.includes('previous') || intentText.includes('back')) {
+                intentValue = -1;
+            } else if (intentText.includes('forward') || intentText.includes('next') || intentText.includes('continue')) {
+                intentValue = 1;
+            }
+            // else intentValue stays 0 for neutral
+            
+            const spectrumFill = $('spectrum-fill');
+            if (spectrumFill) {
+                // Calculate position: -1 is at 0%, 0 is at 50%, 1 is at 100%
+                const fillPercentage = ((intentValue + 1) / 2) * 100;
+                const leftPosition = 50 + (intentValue * 50);
+                
+                spectrumFill.style.left = leftPosition + '%';
+                spectrumFill.style.width = '20px';
+                spectrumFill.style.marginLeft = '-10px'; // Center the fill indicator
+            }
+            
+            const spectrumText = $('spectrum-text');
+            if (spectrumText) spectrumText.textContent = `Intent: ${intentValue}`;
 
             const intentLabel = $('intent-label');
             if (intentLabel) intentLabel.textContent = msg.intent ?? 'Slide Transition';
@@ -192,6 +219,7 @@ function bindUi() {
             const intentType = $('intent-type');
             if (intentType) intentType.textContent = msg.intent_type ?? '—';
 
+            const conf = Math.round((msg.confidence ?? 0) * 100);
             if (conf > 0) {
                 // Track running average for UI feedback.
                 stats.totalConf += conf;
@@ -205,10 +233,10 @@ function bindUi() {
             }
 
             if (msg.keywords?.length) {
-                const keywordsContainer = $('keywords-container');
-                if (keywordsContainer) {
-                    keywordsContainer.innerHTML = msg.keywords.map(kw =>
-                        `<span class="keyword-tag">${kw}</span>`
+                const keywordsImpact = $('keywords-impact-container');
+                if (keywordsImpact) {
+                    keywordsImpact.innerHTML = msg.keywords.map(kw =>
+                        `<span class="keywords-impact-tag">${kw}</span>`
                     ).join('');
                 }
             }
