@@ -204,7 +204,7 @@ class SlideMatcher:
         try:
             emb = _encode_speech(text)  # Uses LRU cache
         except Exception as e:
-            log(f"Encoding error: {e}, text was: '{text[:100]}'")
+            log(f"Encoding error: {e}, text was: '{text[:100]}'", err=True)
             return None
 
         emb_norm = np.linalg.norm(emb) + 1e-8

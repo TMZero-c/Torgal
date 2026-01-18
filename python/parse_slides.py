@@ -43,7 +43,7 @@ def parse_slides(file_path):
         }
         print(json.dumps(result))
     except Exception as e:
-        log(f"ERROR: {e}")
+        log(f"ERROR: {e}", err=True)
         print(json.dumps({"status": "error", "message": str(e)}))
 
 if __name__ == "__main__":

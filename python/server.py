@@ -89,8 +89,8 @@ def build_whisper_model():
         log(f"Loading Whisper model ({WHISPER_MODEL} on {WHISPER_DEVICE})...")
         return WhisperModel(WHISPER_MODEL, device=WHISPER_DEVICE, compute_type=WHISPER_COMPUTE_TYPE)
     except Exception as e:
-        log(f"Whisper init failed on {WHISPER_DEVICE}: {e}")
-        log("Falling back to CPU (int8)")
+        log(f"Whisper init failed on {WHISPER_DEVICE}: {e}", err=True)
+        log("Falling back to CPU (int8)", err=True)
         return WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
 
 
@@ -360,8 +360,8 @@ def main():
         except Exception as e:
             import traceback
 
-            log(f"Error: {e}")
-            log(traceback.format_exc())
+            log(f"Error: {e}", err=True)
+            log(traceback.format_exc(), err=True)
 
 
 if __name__ == "__main__":
