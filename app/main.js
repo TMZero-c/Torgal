@@ -24,7 +24,8 @@ function broadcast(channel, data) {
 function startPython() {
   // Python server streams newline-delimited JSON on stdout.
   log('STARTUP', 'Spawning Python server...');
-  python = spawn(pythonPath, [serverScript]);
+  const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+  python = spawn(pythonPath, [serverScript], { env });
 
   let buffer = '';
   python.stdout.on('data', data => {
@@ -91,7 +92,8 @@ function runSlideParser(filePath) {
   // Parse slides in a short-lived Python process (returns images + text).
   log('PARSE', 'Starting slide parser...');
   const scriptPath = path.join(projectRoot, 'python', 'parse_slides.py');
-  const py = spawn(pythonPath, [scriptPath, filePath]);
+  const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+  const py = spawn(pythonPath, [scriptPath, filePath], { env });
   let output = '';
   py.stdout.on('data', data => output += data.toString());
   py.on('close', code => {
@@ -100,9 +102,9 @@ function runSlideParser(filePath) {
       try {
         const slideData = JSON.parse(output);
         log('PARSE', `Parsed ${slideData.total_pages} slides`);
-        log('FLOW', '→ Sending slides-loaded to both windows');
+        log('FLOW', '-> Sending slides-loaded to both windows');
         broadcast('slides-loaded', slideData);
-        log('FLOW', '→ Sending load_slides to Python server');
+        log('FLOW', '-> Sending load_slides to Python server');
         sendToPython({ type: 'load_slides', slides: slideData.slides });
       } catch (e) { console.error(e); }
     }
