@@ -5,26 +5,218 @@
     <meta charset="UTF-8">
     <title>Transcriber</title>
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            padding: 20px;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .controls {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .controls h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .controls button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .controls button:hover {
+            background: #3367d6;
+        }
+
+        .file-status {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .slide-container {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .slide-display {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            background: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
+        }
+
+        #slide-image {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            object-fit: contain;
+        }
+
+        .slide-controls {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fafafa;
+        }
+
+        .slide-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .slide-nav button {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .slide-nav button:hover {
+            background: #e0e0e0;
+        }
+
+        #slide-counter {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .slide-text {
+            display: none;
+        }
+
+        h1 {
+            display: none;
+        }
+
+        #btn, #status, #output, #file-status {
+            display: none;
+        }
+
+        .thumbnail {
+            width: 100%;
+            height: auto;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border 0.2s;
+        }
+
+        .thumbnail:hover {
+            border-color: #4285f4;
+        }
+
+        .thumbnail.active {
+            border-color: #4285f4;
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+        }
+
+        .thumbnails {
+            margin-top: 20px;
+        }
+
+        .thumbnails h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>Transcriber</h1>
-    <button id="btn">Start Recording</button>
-    <p id="status"></p>
-    <p id="output"></p>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Transcriber</h1>
+            <div class="controls">
+                <h2>Recording</h2>
+                <button id="btn">Start Recording</button>
+                <p id="status" class="file-status"></p>
+                <p id="output"></p>
+            </div>
 
-    <button id="upload-btn">Upload Presentation (PDF/PPTX)</button>
-    <p id="file-status">No file selected</p>
+            <div class="controls">
+                <h2>Upload Slides</h2>
+                <button id="upload-btn">Choose File</button>
+                <p id="file-status" class="file-status">No file selected</p>
+            </div>
 
-    <div id="slide-viewer" style="display:none; margin-top: 20px;">
-        <img id="slide-image" src="" style="max-width: 100%; border: 1px solid #ccc;">
-        <div style="margin-top: 10px;">
-            <button id="prev-btn">Previous</button>
-            <span id="slide-counter"></span>
-            <button id="next-btn">Next</button>
+            <div class="thumbnails" id="thumbnails-container" style="display: none;">
+                <h3>Slides</h3>
+                <div id="thumbnails"></div>
+            </div>
         </div>
-        <p id="slide-text" style="margin-top: 10px; padding: 10px; background: #f0f0f0; max-height: 150px; overflow: auto;"></p>
+
+        <div class="main-content">
+            <div class="slide-container">
+                <div class="slide-display">
+                    <img id="slide-image" src="" alt="Slide">
+                </div>
+                <div class="slide-controls">
+                    <div class="slide-nav">
+                        <button id="prev-btn">← Previous</button>
+                        <button id="next-btn">Next →</button>
+                    </div>
+                    <div id="slide-counter">No slide loaded</div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <p id="slide-text" class="slide-text"></p>
 
     <script>
         let mediaRecorder, chunks = [];
@@ -72,11 +264,14 @@
         };
 
         window.electronAPI.onSlidesLoaded((data) => {
+            console.log('Received slides-loaded event:', data);
             if (data.status === 'success') {
+                console.log('Processing slides, count:', data.slides.length);
                 slides = data.slides;
                 currentSlide = 0;
                 displaySlide(0);
-                document.getElementById('slide-viewer').style.display = 'block';
+                generateThumbnails();
+                document.getElementById('thumbnails-container').style.display = 'block';
                 fileStatus.textContent = `Loaded ${data.total_pages} slides`;
             } else {
                 fileStatus.textContent = `Error: ${data.message}`;
@@ -85,23 +280,45 @@
 
         function displaySlide(index) {
             if (slides.length === 0) return;
+            currentSlide = index;
             const slide = slides[index];
             document.getElementById('slide-image').src = slide.image;
             document.getElementById('slide-text').textContent = slide.text;
-            document.getElementById('slide-counter').textContent = `Slide ${index + 1} of ${slides.length}`;
+            document.getElementById('slide-counter').textContent = `${index + 1} / ${slides.length}`;
+            
+            // Update active thumbnail
+            document.querySelectorAll('.thumbnail').forEach((thumb, i) => {
+                if (i === index) {
+                    thumb.classList.add('active');
+                } else {
+                    thumb.classList.remove('active');
+                }
+            });
+        }
+
+        function generateThumbnails() {
+            const thumbnailsDiv = document.getElementById('thumbnails');
+            thumbnailsDiv.innerHTML = '';
+            slides.forEach((slide, index) => {
+                const img = document.createElement('img');
+                img.className = 'thumbnail';
+                if (index === 0) img.classList.add('active');
+                img.src = slide.image;
+                img.alt = `Slide ${index + 1}`;
+                img.onclick = () => displaySlide(index);
+                thumbnailsDiv.appendChild(img);
+            });
         }
 
         document.getElementById('prev-btn').onclick = () => {
             if (currentSlide > 0) {
-                currentSlide--;
-                displaySlide(currentSlide);
+                displaySlide(currentSlide - 1);
             }
         };
 
         document.getElementById('next-btn').onclick = () => {
             if (currentSlide < slides.length - 1) {
-                currentSlide++;
-                displaySlide(currentSlide);
+                displaySlide(currentSlide + 1);
             }
         };
         
