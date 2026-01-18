@@ -1,248 +1,179 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
-    <title>Slide Co-Pilot</title>
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <title>Presenter</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: -apple-system, system-ui, sans-serif;
-            padding: 16px;
-            background: #fff;
-            color: #111;
-        }
-
-        header {
-            margin-bottom: 16px;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 12px;
-        }
-
-        h1 {
-            font-size: 16px;
-            font-weight: 500;
-        }
-
-        #upload {
-            margin-bottom: 12px;
-        }
-
-        #upload button {
-            background: none;
-            border: 1px solid #999;
-            padding: 6px 12px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        #upload button:hover {
-            border-color: #333;
-        }
-
-        #file-status {
-            margin-left: 10px;
-            color: #666;
-            font-size: 12px;
-        }
-
-        #slide-viewer {
-            display: none;
-            border: 1px solid #ddd;
-            margin-bottom: 12px;
-        }
-
-        #slide-image {
-            width: 100%;
-            display: block;
-        }
-
-        #slide-nav {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
-            background: #f5f5f5;
-            font-size: 12px;
-        }
-
-        #slide-nav button {
-            background: none;
-            border: 1px solid #ccc;
-            padding: 4px 10px;
-            cursor: pointer;
-        }
-
-        #controls {
-            margin-bottom: 12px;
-        }
-
-        #btn {
-            padding: 8px 16px;
-            font-size: 13px;
-            cursor: pointer;
-            border: none;
-            background: #111;
-            color: #fff;
-        }
-
-        #btn.on {
-            background: #c00;
-        }
-
-        #status {
-            margin-left: 10px;
-            color: #666;
-            font-size: 12px;
-        }
-
-        #transcript {
-            border: 1px solid #ddd;
-            padding: 10px;
-            min-height: 50px;
-            max-height: 80px;
-            overflow-y: auto;
-            font-size: 13px;
-            font-family: monospace;
-        }
-
-        #partial {
-            color: #999;
-            font-size: 12px;
-            margin-top: 4px;
-        }
-
-        #info {
-            margin-top: 10px;
-            padding: 8px;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            font-size: 12px;
-        }
-
-        #info.triggered {
-            background: #efffef;
-            border-color: #090;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a1a; color: #fff; height: 100vh; }
+        
+        .container { display: flex; height: 100vh; }
+        
+        .left-panel { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #242424; border-right: 1px solid #333; }
+        .right-panel { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #1a1a1a; overflow: auto; }
+        
+        .slide-preview { flex: 0 0 40%; background: #000; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .slide-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        .controls { flex: 0 0 auto; display: flex; gap: 10px; margin-bottom: 15px; }
+        .controls button { flex: 1; padding: 10px; background: #007aff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .controls button:hover { background: #0051d5; }
+        
+        .slide-nav { display: flex; gap: 10px; justify-content: center; }
+        .slide-nav button { padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .slide-nav button:hover { background: #444; }
+        .slide-counter { text-align: center; font-size: 14px; color: #aaa; margin: 10px 0; }
+        
+        .transcript-panel { flex: 1; background: #333; border-radius: 8px; padding: 15px; overflow-y: auto; margin-bottom: 15px; }
+        .transcript-panel h3 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 10px; }
+        .transcript-text { font-size: 14px; line-height: 1.5; color: #ddd; }
+        .transcript-text.partial { opacity: 0.6; font-style: italic; }
+        
+        .stats-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .stat-card { background: #333; border-radius: 8px; padding: 15px; }
+        .stat-card h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
+        .stat-value { font-size: 28px; font-weight: 600; color: #007aff; }
+        .stat-detail { font-size: 12px; color: #aaa; margin-top: 5px; }
+        
+        .intent-card { background: #333; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .intent-card h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
+        .intent-label { font-size: 16px; font-weight: 600; color: #34c759; margin-bottom: 8px; }
+        .confidence-bar { background: #555; height: 6px; border-radius: 3px; overflow: hidden; margin: 10px 0; }
+        .confidence-fill { background: linear-gradient(90deg, #007aff, #34c759); height: 100%; width: 0%; transition: width 0.3s; }
+        
+        .keyword-highlights { display: flex; flex-wrap: wrap; gap: 8px; }
+        .keyword-tag { background: #007aff; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; }
     </style>
 </head>
-
 <body>
-    <header>
-        <h1>Slide Co-Pilot</h1>
-    </header>
-
-    <div id="upload">
-        <button id="upload-btn">Upload PDF/PPTX</button>
-        <span id="file-status">No file</span>
-    </div>
-
-    <div id="slide-viewer">
-        <img id="slide-image" src="">
-        <div id="slide-nav">
-            <button id="prev-btn">← Prev</button>
-            <span id="slide-counter">1 / 1</span>
-            <button id="next-btn">Next →</button>
+    <div class="container">
+        <div class="left-panel">
+            <div class="slide-preview">
+                <img id="preview-img" src="" alt="Current Slide">
+            </div>
+            
+            <div class="controls">
+                <button id="upload-btn">Upload Presentation</button>
+                <button id="reset-btn">Reset</button>
+            </div>
+            
+            <div class="slide-counter"><span id="slide-number">0 / 0</span></div>
+            <div class="slide-nav">
+                <button id="prev-btn">← Prev</button>
+                <button id="next-btn">Next →</button>
+            </div>
+            
+            <div class="transcript-panel">
+                <h3>Transcript</h3>
+                <div id="transcript-partial" class="transcript-text partial">Listening...</div>
+                <div id="transcript-final" class="transcript-text"></div>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="intent-card">
+                <h4>Intent & Confidence</h4>
+                <div class="intent-label" id="intent-label">Listening...</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="conf-bar"></div>
+                </div>
+                <div id="conf-text" style="font-size: 12px; color: #aaa;">Confidence: 0%</div>
+            </div>
+            
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h4>Total Confidence</h4>
+                    <div class="stat-value" id="total-conf">0%</div>
+                    <div class="stat-detail">Average confidence</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Slides Matched</h4>
+                    <div class="stat-value" id="slides-matched">0</div>
+                    <div class="stat-detail">Total transitions</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Current Slide</h4>
+                    <div class="stat-value" id="current-slide-num">1</div>
+                    <div class="stat-detail">of <span id="total-slides">0</span></div>
+                </div>
+                <div class="stat-card">
+                    <h4>Intent Type</h4>
+                    <div id="intent-type" style="font-size: 16px; font-weight: 600; color: #34c759; margin-top: 5px;">—</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <h4 style="font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 10px;">Detected Keywords</h4>
+                <div id="keywords-container" class="keyword-highlights">
+                    <span style="color: #999; font-size: 12px;">None detected</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="controls">
-        <button id="btn">Start</button>
-        <span id="status">Load slides first</span>
-    </div>
-
-    <div id="transcript"></div>
-    <div id="partial"></div>
-    <div id="info">—</div>
-
     <script>
-        const $ = id => document.getElementById(id);
-        let slides = [], current = 0, listening = false;
-        let audioCtx, processor, source, stream;
-
-        function showSlide(i) {
-            if (!slides.length) return;
-            current = i;
-            $('slide-image').src = slides[i].image;
-            $('slide-counter').textContent = `${i + 1} / ${slides.length}`;
-        }
-
-        $('upload-btn').onclick = async () => {
-            const path = await window.api.openFileDialog();
-            if (path) $('file-status').textContent = 'Loading...';
-        };
+        let slides = [];
+        let currentSlide = 0;
+        let stats = { totalConf: 0, count: 0, matched: 0 };
 
         window.api.onSlidesLoaded(data => {
             if (data.status === 'success') {
                 slides = data.slides;
-                showSlide(0);
-                $('slide-viewer').style.display = 'block';
-                $('file-status').textContent = `${data.total_pages} slides`;
-                $('status').textContent = 'Ready';
-            } else {
-                $('file-status').textContent = 'Error';
+                currentSlide = 0;
+                displaySlide(0);
+                document.getElementById('total-slides').textContent = slides.length;
             }
         });
 
-        $('prev-btn').onclick = () => current > 0 && showSlide(current - 1);
-        $('next-btn').onclick = () => current < slides.length - 1 && showSlide(current + 1);
+        function displaySlide(idx) {
+            if (!slides.length) return;
+            currentSlide = Math.max(0, Math.min(idx, slides.length - 1));
+            document.getElementById('preview-img').src = slides[currentSlide].image;
+            document.getElementById('slide-number').textContent = `${currentSlide + 1} / ${slides.length}`;
+            document.getElementById('current-slide-num').textContent = currentSlide + 1;
+        }
 
         window.api.onTranscript(msg => {
-            if (msg.type === 'ready') $('status').textContent = 'Ready';
-            else if (msg.type === 'final') {
-                $('transcript').textContent += msg.text + ' ';
-                $('transcript').scrollTop = $('transcript').scrollHeight;
-            }
-            else if (msg.type === 'partial') $('partial').textContent = msg.text;
-            else if (msg.type === 'slide_transition') {
-                showSlide(msg.to_slide);
-                $('info').className = 'triggered';
-                $('info').textContent = `→ ${msg.to_slide + 1}: ${msg.slide_title}`;
-                setTimeout(() => $('info').className = '', 800);
-            }
-            else if (msg.type === 'reset_done') {
-                showSlide(0);
-                $('transcript').textContent = '';
-                $('info').textContent = '—';
+            if (msg.type === 'partial') {
+                document.getElementById('transcript-partial').textContent = msg.text;
+            } else if (msg.type === 'final') {
+                document.getElementById('transcript-final').textContent += (document.getElementById('transcript-final').textContent ? '\n' : '') + msg.text;
+                document.getElementById('transcript-partial').textContent = '';
+            } else if (msg.type === 'slide_transition' || msg.type === 'slide_set') {
+                const idx = msg.to_slide ?? msg.current_slide ?? 0;
+                displaySlide(idx);
+                
+                const conf = Math.round((msg.confidence ?? 0) * 100);
+                document.getElementById('conf-bar').style.width = conf + '%';
+                document.getElementById('conf-text').textContent = `Confidence: ${conf}%`;
+                document.getElementById('intent-label').textContent = msg.intent ?? 'Slide Transition';
+                document.getElementById('intent-type').textContent = msg.intent_type ?? '—';
+                
+                if (conf > 0) {
+                    stats.totalConf += conf;
+                    stats.count++;
+                    stats.matched++;
+                    document.getElementById('total-conf').textContent = Math.round(stats.totalConf / stats.count) + '%';
+                    document.getElementById('slides-matched').textContent = stats.matched;
+                }
+                
+                if (msg.keywords && msg.keywords.length) {
+                    document.getElementById('keywords-container').innerHTML = msg.keywords.map(kw => `<span class="keyword-tag">${kw}</span>`).join('');
+                }
             }
         });
 
-        async function start() {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioCtx = new AudioContext({ sampleRate: 16000 });
-            source = audioCtx.createMediaStreamSource(stream);
-            processor = audioCtx.createScriptProcessor(4096, 1, 1);
-            processor.onaudioprocess = e => {
-                const f32 = e.inputBuffer.getChannelData(0);
-                const i16 = new Int16Array(f32.length);
-                for (let i = 0; i < f32.length; i++) i16[i] = Math.max(-32768, Math.min(32767, f32[i] * 32768));
-                window.api.sendAudioChunk(btoa(String.fromCharCode(...new Uint8Array(i16.buffer))));
-            };
-            source.connect(processor);
-            processor.connect(audioCtx.destination);
-            listening = true;
-            $('btn').textContent = 'Stop';
-            $('btn').className = 'on';
-            $('status').textContent = 'Listening';
-        }
-
-        function stop() {
-            processor?.disconnect(); source?.disconnect(); audioCtx?.close();
-            stream?.getTracks().forEach(t => t.stop());
-            listening = false;
-            $('btn').textContent = 'Start';
-            $('btn').className = '';
-            $('status').textContent = 'Stopped';
+        document.getElementById('upload-btn').onclick = () => window.api.openFileDialog();
+        document.getElementById('reset-btn').onclick = () => {
             window.api.reset();
-        }
-
-        $('btn').onclick = () => listening ? stop() : start();
+            document.getElementById('transcript-final').textContent = '';
+            document.getElementById('transcript-partial').textContent = 'Listening...';
+            stats = { totalConf: 0, count: 0, matched: 0 };
+            document.getElementById('total-conf').textContent = '0%';
+            document.getElementById('slides-matched').textContent = '0';
+        };
+        document.getElementById('prev-btn').onclick = () => displaySlide(currentSlide - 1);
+        document.getElementById('next-btn').onclick = () => displaySlide(currentSlide + 1);
     </script>
 </body>
-
 </html>
