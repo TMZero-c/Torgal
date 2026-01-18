@@ -117,9 +117,11 @@ function createWindows() {
 
   presenterWin = new BrowserWindow({
     width: 1100, height: 900,
+    icon: path.join(__dirname, 'assets/IMPORTANT.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js') }
   });
   presenterWin.loadFile(path.join(__dirname, 'index.html'));
+  presenterWin.setTitle('Torgal (presenter)');
   presenterWin.webContents.openDevTools();
 
   slideshowWin = new BrowserWindow({
@@ -128,9 +130,11 @@ function createWindows() {
     y: externalDisplay ? externalDisplay.bounds.y : 0,
     fullscreen: !!externalDisplay,
     autoHideMenuBar: true,
+    icon: path.join(__dirname, 'assets/IMPORTANT.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js') }
   });
   slideshowWin.loadFile(path.join(__dirname, 'slideshow.html'));
+  slideshowWin.setTitle('Torgal (Analysis)');
 }
 
 app.whenReady().then(() => {
