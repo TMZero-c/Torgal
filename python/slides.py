@@ -21,6 +21,10 @@ from config import (
     NON_ADJACENT_BOOST,
     KEYWORD_BOOST,
     KEYWORD_MIN_TOKENS,
+    SENTENCE_EMBEDDINGS_ENABLED,
+    SENTENCE_MAX_PER_SLIDE,
+    SENTENCE_MIN_CHARS,
+    SENTENCE_MIN_WORDS,
 )
 from embeddings import get_embedding_model
 from logger import get_logger
@@ -39,6 +43,39 @@ _STOPWORDS = {
 def _tokenize(text: str) -> Set[str]:
     tokens = re.findall(r"[a-z0-9']+", (text or "").lower())
     return {t for t in tokens if len(t) > 2 and t not in _STOPWORDS}
+
+
+def _split_sentences(text: str) -> List[str]:
+    if not text:
+        return []
+
+    # Normalize bullets and line breaks to sentence-like chunks
+    normalized = text.replace("•", "\n").replace("- ", "\n")
+    lines = [ln.strip() for ln in re.split(r"[\n\r]+", normalized) if ln.strip()]
+
+    sentences: List[str] = []
+    for line in lines:
+        parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", line) if p.strip()]
+        for part in parts:
+            if len(part) < SENTENCE_MIN_CHARS:
+                continue
+            if len(part.split()) < SENTENCE_MIN_WORDS:
+                continue
+            sentences.append(part)
+
+    # Dedupe and cap
+    seen = set()
+    unique = []
+    for s in sentences:
+        key = s.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(s)
+        if len(unique) >= SENTENCE_MAX_PER_SLIDE:
+            break
+
+    return unique
 
 
 # LRU cache for speech embeddings - avoids re-encoding similar windows
@@ -79,6 +116,7 @@ class Slide:
     content: str
     embedding: np.ndarray = field(default=None, repr=False)  # type: ignore
     tokens: Set[str] = field(default_factory=set, repr=False)
+    sentence_embeddings: Optional[np.ndarray] = field(default=None, repr=False)
 
     def __post_init__(self):
         if self.embedding is None:
@@ -89,6 +127,13 @@ class Slide:
             embeddings = model.encode([text], convert_to_numpy=True)
             self.embedding = embeddings[0]
             self.tokens = _tokenize(text)
+
+            if SENTENCE_EMBEDDINGS_ENABLED:
+                sentences = _split_sentences(text)
+                if sentences:
+                    sent_embs = model.encode(sentences, convert_to_numpy=True)
+                    norms = np.linalg.norm(sent_embs, axis=1, keepdims=True) + 1e-8
+                    self.sentence_embeddings = sent_embs / norms
             log(f"  → {self.embedding.shape[0]}-dim vector")
 
 
@@ -150,7 +195,7 @@ class SlideMatcher:
             log(f"Cooldown: {self.words_since}/{self.cooldown} words")
             return None
 
-        log(f"Checking: '{text[:50]}...'")
+        log(f"Checking: '{text}...'")
 
         try:
             emb = _encode_speech(text)  # Uses LRU cache
@@ -158,9 +203,14 @@ class SlideMatcher:
             log(f"Encoding error: {e}, text was: '{text[:100]}'")
             return None
 
+        emb_norm = np.linalg.norm(emb) + 1e-8
+
         sims = np.dot(self._embeddings, emb) / (
             np.linalg.norm(self._embeddings, axis=1) * np.linalg.norm(emb) + 1e-8
         )
+
+        next_slide = self.current + 1 if self.current + 1 < len(self.slides) else self.current
+        prev_slide = self.current - 1 if self.current > 0 else self.current
 
         # Optionally boost slides that share keywords with the spoken text.
         sims_used = sims
@@ -168,12 +218,10 @@ class SlideMatcher:
         if KEYWORD_BOOST > 0 and len(speech_tokens) >= KEYWORD_MIN_TOKENS:
             sims_used = sims.copy()
             boost_indices = {self.current}
-            next_idx = self.current + 1 if self.current + 1 < len(self.slides) else self.current
-            prev_idx = self.current - 1 if self.current > 0 else self.current
-            if next_idx != self.current:
-                boost_indices.add(next_idx)
-            if prev_idx != self.current:
-                boost_indices.add(prev_idx)
+            if next_slide != self.current:
+                boost_indices.add(next_slide)
+            if prev_slide != self.current:
+                boost_indices.add(prev_slide)
             if self.allow_non_adjacent:
                 boost_indices.add(int(np.argmax(sims)))
 
@@ -182,9 +230,19 @@ class SlideMatcher:
                 if overlap > 0:
                     sims_used[idx] = min(1.0, sims_used[idx] + KEYWORD_BOOST * overlap)
 
+        # Hybrid sentence-level matching for current/adjacent slides
+        if SENTENCE_EMBEDDINGS_ENABLED:
+            sims_used = sims_used.copy() if sims_used is sims else sims_used
+            for idx in {self.current, next_slide, prev_slide}:
+                slide = self.slides[idx]
+                if slide.sentence_embeddings is None or len(slide.sentence_embeddings) == 0:
+                    continue
+                sent_sims = np.dot(slide.sentence_embeddings, emb) / emb_norm
+                max_sent = float(np.max(sent_sims)) if sent_sims.size else None
+                if max_sent is not None and max_sent > sims_used[idx]:
+                    sims_used[idx] = max_sent
+
         best = int(np.argmax(sims_used))
-        next_slide = self.current + 1 if self.current + 1 < len(self.slides) else self.current
-        prev_slide = self.current - 1 if self.current > 0 else self.current
 
         # Consider only current/adjacent slides by default
         candidates = [self.current]
