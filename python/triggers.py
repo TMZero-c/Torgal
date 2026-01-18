@@ -24,15 +24,19 @@ class Trigger:
 
 # Pre-compiled patterns for speed
 # Note: patterns are anchored to the start to avoid mid-sentence matches.
+_PREFIX = r'^\s*(?:please\b\s*)?(?:can you\b\s*|could you\b\s*|would you\b\s*|let\'?s\b\s*|we should\b\s*|i want to\b\s*)?'
+_SEP = r'(?:\s|[.,;:])+'
+_SEP_OPT = r'(?:\s|[.,;:])*'
+
 _PATTERNS = [
-    (re.compile(r'^\s*(?:please\s+)?(?:go|move|advance|switch)\s*(?:to\s*)?(?:the\s*)?next\s*(?:slide|one)\b', re.I), TriggerAction.NEXT),
-    (re.compile(r'^\s*(?:please\s+)?(?:go|move|switch)\s*back\s*(?:a\s*)?(?:slide|one)\b', re.I), TriggerAction.PREV),
-    (re.compile(r'^\s*(?:please\s+)?(?:previous|prior)\s*slide\b', re.I), TriggerAction.PREV),
-    (re.compile(r'^\s*(?:please\s+)?last\s*slide\b', re.I), TriggerAction.LAST),
-    (re.compile(r'^\s*(?:please\s+)?first\s*slide\b', re.I), TriggerAction.FIRST),
+    (re.compile(_PREFIX + r'(?:go|move|advance|switch)' + _SEP + r'(?:to' + _SEP_OPT + r')?(?:the' + _SEP_OPT + r')?next' + _SEP_OPT + r'(?:slide|one)\b', re.I), TriggerAction.NEXT),
+    (re.compile(_PREFIX + r'(?:go|move|switch)' + _SEP + r'back' + _SEP_OPT + r'(?:a' + _SEP_OPT + r')?(?:slide|one)\b', re.I), TriggerAction.PREV),
+    (re.compile(_PREFIX + r'(?:previous|prior)' + _SEP + r'slide\b', re.I), TriggerAction.PREV),
+    (re.compile(_PREFIX + r'last' + _SEP + r'slide\b', re.I), TriggerAction.LAST),
+    (re.compile(_PREFIX + r'first' + _SEP + r'slide\b', re.I), TriggerAction.FIRST),
     # Number-based patterns - explicit jump
-    (re.compile(r'^\s*(?:please\s+)?(?:go|jump|skip)\s*(?:to\s*)?(?:slide\s*)?(\d+)\b', re.I), TriggerAction.GOTO),
-    (re.compile(r'^\s*(?:please\s+)?slide\s*(\d+)\b', re.I), TriggerAction.GOTO),  # "slide 5"
+    (re.compile(_PREFIX + r'(?:go|jump|skip)' + _SEP + r'(?:to' + _SEP_OPT + r')?(?:slide' + _SEP_OPT + r')?(\d+)\b', re.I), TriggerAction.GOTO),
+    (re.compile(_PREFIX + r'slide' + _SEP + r'(\d+)\b', re.I), TriggerAction.GOTO),  # "slide 5"
 ]
 
 

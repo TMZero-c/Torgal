@@ -185,13 +185,13 @@ class SlideMatcher:
         self._embeddings = np.stack([s.embedding for s in self.slides])
         log(f"Matcher ready! Embeddings shape: {self._embeddings.shape}")
 
-    def check(self, text: str) -> Optional[dict]:
+    def check(self, text: str, ignore_cooldown: bool = False) -> Optional[dict]:
         """Check if text matches a different slide better than current."""
         text = (text or "").strip()
         if not text:
             log("check() called with empty text, skipping")
             return None
-        if self.words_since < self.cooldown:
+        if not ignore_cooldown and self.words_since < self.cooldown:
             log(f"Cooldown: {self.words_since}/{self.cooldown} words")
             return None
 

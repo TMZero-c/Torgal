@@ -22,6 +22,11 @@ from config import (
     TRIGGER_TAIL_WORDS,
     TRIGGER_MIN_WORDS_BETWEEN,
     PARTIAL_FINALIZE_MS,
+    PARTIAL_MATCH_ENABLED,
+    PARTIAL_MATCH_MIN_WORDS,
+    PARTIAL_MATCH_STABLE_MS,
+    PARTIAL_MATCH_COOLDOWN_MS,
+    PARTIAL_MATCH_IGNORE_COOLDOWN,
 )
 from logger import get_logger
 from runtime import setup_cuda_dlls
@@ -56,6 +61,7 @@ class SpeechState:
     last_partial_text: str = ""
     last_partial_ts: float = 0.0
     last_word_ts: float = 0.0
+    last_partial_match_ts: float = 0.0
 
 
 def send(msg):
@@ -180,6 +186,44 @@ def _process_words(words, matcher, text_window, command_state) -> None:
         text_window.clear()
 
 
+def _maybe_partial_match(
+    partial_text: str,
+    matcher,
+    text_window,
+    speech_state: SpeechState,
+    now: float,
+) -> None:
+    if not PARTIAL_MATCH_ENABLED or not matcher or not partial_text:
+        return
+
+    words = [w for w in partial_text.split() if w]
+    if len(words) < PARTIAL_MATCH_MIN_WORDS:
+        return
+
+    stable_s = PARTIAL_MATCH_STABLE_MS / 1000.0
+    if (now - speech_state.last_partial_ts) < stable_s:
+        return
+
+    cooldown_s = PARTIAL_MATCH_COOLDOWN_MS / 1000.0
+    if (now - speech_state.last_partial_match_ts) < cooldown_s:
+        return
+
+    combined_words = (text_window + words)[-WINDOW_WORDS:]
+    window_text = " ".join(combined_words).strip()
+    if not window_text:
+        return
+
+    weighted_text = _weighted_text(window_text, combined_words)
+    transition = matcher.check(weighted_text, ignore_cooldown=PARTIAL_MATCH_IGNORE_COOLDOWN)
+    speech_state.last_partial_match_ts = now
+    if transition:
+        log(f"PARTIAL TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
+        send_type(IpcType.SLIDE_TRANSITION, **transition)
+        text_window.clear()
+        speech_state.last_partial_text = ""
+        speech_state.last_partial_ts = 0.0
+
+
 def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandState, speech_state: SpeechState):
     silent = bool(msg.get("silent"))
     if not silent:
@@ -198,6 +242,7 @@ def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandS
 
         speech_state.last_partial_text = ""
         speech_state.last_partial_ts = 0.0
+        speech_state.last_partial_match_ts = 0.0
         speech_state.last_word_ts = now
 
         _process_words(confirmed, matcher, text_window, command_state)
@@ -224,6 +269,8 @@ def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandS
                     command_state,
                     {TriggerAction.GOTO, TriggerAction.FIRST, TriggerAction.LAST},
                 )
+
+        _maybe_partial_match(partial_text, matcher, text_window, speech_state, now)
 
     # If speech stops, finalize a stable partial and run matching
     if not confirmed:
@@ -307,6 +354,7 @@ def main():
                 speech_state.last_partial_text = ""
                 speech_state.last_partial_ts = 0.0
                 speech_state.last_word_ts = 0.0
+                speech_state.last_partial_match_ts = 0.0
                 send_type(IpcType.RESET_DONE, current_slide=0)
 
         except Exception as e:
