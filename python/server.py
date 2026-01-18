@@ -82,15 +82,20 @@ class Transcriber:
 
 
 def main():
-    log("Loading Whisper model...")
-    model = WhisperModel("small.en", device="cuda", compute_type="float16")
-    log("Model loaded!")
+    log("="*50)
+    log("SERVER STARTING")
+    log("="*50)
+    log("Loading Whisper model (distil-medium.en on CUDA)...")
+    model = WhisperModel("distil-medium.en", device="cuda", compute_type="float16")
+    log("Whisper model loaded!")
     
     matcher = None  # Will be created when slides are loaded
     transcriber = Transcriber(model)
     text_window = []
     
+    log("Sending 'ready' to Electron")
     send({"type": "ready"})
+    log("Waiting for messages on stdin...")
     
     for line in sys.stdin:
         try:
@@ -100,7 +105,12 @@ def main():
                 transcriber.add_audio(base64.b64decode(msg["data"]))
                 confirmed, partial = transcriber.process()
                 
+                # Filter out empty strings
+                confirmed = [w for w in confirmed if w and w.strip()]
+                partial = [w for w in partial if w and w.strip()]
+                
                 if confirmed:
+                    log(f"CONFIRMED: {' '.join(confirmed)}")
                     send({"type": "final", "text": " ".join(confirmed)})
                     
                     # Check slide transition if slides are loaded
@@ -109,23 +119,36 @@ def main():
                         text_window = text_window[-25:]
                         matcher.add_words(len(confirmed))
                         
-                        transition = matcher.check(" ".join(text_window))
-                        if transition:
-                            send(transition)
-                            text_window.clear()
+                        window_text = " ".join(text_window).strip()
+                        if window_text:
+                            log(f"Text window: {len(text_window)} words")
+                            transition = matcher.check(window_text)
+                            if transition:
+                                log(f"SENDING TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
+                                send(transition)
+                                text_window.clear()
                 
                 if partial:
                     send({"type": "partial", "text": " ".join(partial)})
             
             elif msg["type"] == "load_slides":
+                log("="*50)
+                log("LOADING SLIDES")
+                log("="*50)
                 # Load slides from parsed PDF/PPTX
                 from slides import Slide, SlideMatcher
                 slides_data = msg.get("slides", [])
+                log(f"Received {len(slides_data)} slides from main.js")
+                for i, s in enumerate(slides_data):
+                    title = s.get('title', '')
+                    content = s.get('content', '')
+                    log(f"  Slide {i}: title={type(title).__name__}:'{str(title)[:30]}' content={type(content).__name__}:{len(str(content))} chars")
                 slides = [Slide(i, s.get("title", f"Slide {i+1}"), s.get("content", "")) 
                           for i, s in enumerate(slides_data)]
                 matcher = SlideMatcher(slides=slides)
                 text_window.clear()
-                log(f"Loaded {len(slides)} slides from file")
+                log(f"SlideMatcher created with {len(slides)} slides")
+                log("Sending slides_ready to Electron")
                 send({"type": "slides_ready", "count": len(slides)})
             
             elif msg["type"] == "goto_slide":
@@ -142,7 +165,9 @@ def main():
                 send({"type": "reset_done", "current_slide": 0})
                 
         except Exception as e:
+            import traceback
             log(f"Error: {e}")
+            log(traceback.format_exc())
 
 if __name__ == "__main__":
     main()

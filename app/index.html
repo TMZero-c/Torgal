@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Slide Co-Pilot</title>
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
     <style>
@@ -165,26 +166,37 @@
         let slides = [], current = 0, listening = false;
         let audioCtx, processor, source, stream;
 
+        // Debug logging
+        const log = (tag, msg) => console.log(`[renderer] [${tag}] ${msg}`);
+
         function showSlide(i) {
             if (!slides.length) return;
+            log('UI', `Showing slide ${i + 1}`);
             current = i;
             $('slide-image').src = slides[i].image;
             $('slide-counter').textContent = `${i + 1} / ${slides.length}`;
         }
 
         $('upload-btn').onclick = async () => {
+            log('UPLOAD', 'Opening file dialog...');
             const path = await window.api.openFileDialog();
-            if (path) $('file-status').textContent = 'Loading...';
+            if (path) {
+                log('UPLOAD', `File selected: ${path}`);
+                $('file-status').textContent = 'Loading...';
+            }
         };
 
         window.api.onSlidesLoaded(data => {
+            log('SLIDES', `Received slides-loaded event: ${data.status}`);
             if (data.status === 'success') {
+                log('SLIDES', `Got ${data.total_pages} slides with images`);
                 slides = data.slides;
                 showSlide(0);
                 $('slide-viewer').style.display = 'block';
                 $('file-status').textContent = `${data.total_pages} slides`;
                 $('status').textContent = 'Ready';
             } else {
+                log('SLIDES', `Error: ${data.message}`);
                 $('file-status').textContent = 'Error';
             }
         });
@@ -193,6 +205,7 @@
         $('next-btn').onclick = () => current < slides.length - 1 && showSlide(current + 1);
 
         window.api.onTranscript(msg => {
+            log('MSG', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
             if (msg.type === 'ready') $('status').textContent = 'Ready';
             else if (msg.type === 'final') {
                 $('transcript').textContent += msg.text + ' ';
@@ -200,12 +213,17 @@
             }
             else if (msg.type === 'partial') $('partial').textContent = msg.text;
             else if (msg.type === 'slide_transition') {
+                log('TRANSITION', `Slide ${msg.from_slide + 1} → ${msg.to_slide + 1} (${msg.confidence.toFixed(2)})`);
                 showSlide(msg.to_slide);
                 $('info').className = 'triggered';
                 $('info').textContent = `→ ${msg.to_slide + 1}: ${msg.slide_title}`;
                 setTimeout(() => $('info').className = '', 800);
             }
+            else if (msg.type === 'slides_ready') {
+                log('SLIDES', `Server loaded ${msg.count} slides for matching`);
+            }
             else if (msg.type === 'reset_done') {
+                log('RESET', 'Transcript cleared');
                 showSlide(0);
                 $('transcript').textContent = '';
                 $('info').textContent = '—';
@@ -213,6 +231,7 @@
         });
 
         async function start() {
+            log('AUDIO', 'Starting microphone capture...');
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioCtx = new AudioContext({ sampleRate: 16000 });
             source = audioCtx.createMediaStreamSource(stream);
@@ -226,12 +245,14 @@
             source.connect(processor);
             processor.connect(audioCtx.destination);
             listening = true;
+            log('AUDIO', 'Microphone active, streaming to Python');
             $('btn').textContent = 'Stop';
             $('btn').className = 'on';
             $('status').textContent = 'Listening';
         }
 
         function stop() {
+            log('AUDIO', 'Stopping microphone');
             processor?.disconnect(); source?.disconnect(); audioCtx?.close();
             stream?.getTracks().forEach(t => t.stop());
             listening = false;

@@ -9,8 +9,12 @@ const serverScript = path.join(projectRoot, 'python', 'server.py');
 let python = null;
 let mainWindow = null;
 
+// Debug logging
+const log = (tag, msg) => console.log(`[main.js] [${tag}] ${msg}`);
+
 // Start streaming transcription server
 function startPython() {
+  log('STARTUP', 'Spawning Python server...');
   python = spawn(pythonPath, [serverScript]);
 
   let buffer = '';
@@ -22,6 +26,7 @@ function startPython() {
       if (line.trim()) {
         try {
           const msg = JSON.parse(line);
+          log('FROM_PYTHON', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
           mainWindow?.webContents.send('transcript', msg);
         } catch (e) { }
       }
@@ -33,7 +38,10 @@ function startPython() {
 }
 
 function sendToPython(msg) {
-  if (python) python.stdin.write(JSON.stringify(msg) + '\n');
+  if (python) {
+    if (msg.type !== 'audio') log('TO_PYTHON', `${msg.type}`);
+    python.stdin.write(JSON.stringify(msg) + '\n');
+  }
 }
 
 // Audio streaming IPC
@@ -43,19 +51,23 @@ ipcMain.on('goto-slide', (_, index) => sendToPython({ type: 'goto_slide', index 
 
 // File upload dialog
 ipcMain.handle('dialog:openFile', async () => {
+  log('UPLOAD', 'Opening file dialog...');
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [{ name: 'Presentations', extensions: ['pdf', 'pptx'] }]
   });
 
   if (!canceled && filePaths[0]) {
+    log('UPLOAD', `File selected: ${filePaths[0]}`);
     runSlideParser(filePaths[0]);
     return filePaths[0];
   }
+  log('UPLOAD', 'Dialog canceled');
 });
 
 // Parse slides with Python
 function runSlideParser(filePath) {
+  log('PARSE', 'Starting slide parser...');
   const scriptPath = path.join(projectRoot, 'python', 'parse_slides.py');
   const py = spawn(pythonPath, [scriptPath, filePath]);
 
@@ -64,11 +76,14 @@ function runSlideParser(filePath) {
   py.stderr.on('data', data => console.error('[SlideParser]', data.toString()));
 
   py.on('close', code => {
+    log('PARSE', `Parser exited with code ${code}`);
     if (code === 0) {
       try {
         const slideData = JSON.parse(output);
+        log('PARSE', `Parsed ${slideData.total_pages} slides`);
+        log('FLOW', '→ Sending slides-loaded to renderer');
         mainWindow?.webContents.send('slides-loaded', slideData);
-        // Also send to server for matching
+        log('FLOW', '→ Sending load_slides to Python server');
         sendToPython({ type: 'load_slides', slides: slideData.slides });
       } catch (e) {
         console.error('Failed to parse slide output:', e);

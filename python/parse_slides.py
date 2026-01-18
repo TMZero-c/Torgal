@@ -4,12 +4,18 @@ import json
 import base64
 from io import BytesIO
 
+def log(msg):
+    print(f"[parse_slides] {msg}", file=sys.stderr, flush=True)
+
 def parse_slides(file_path):
+    log(f"Opening: {file_path}")
     try:
         doc = fitz.open(file_path)
+        log(f"Opened document with {len(doc)} pages")
         slides = []
         
-        for i, page in enumerate(doc):
+        for i, page in enumerate(doc): # type: ignore
+            log(f"Processing page {i+1}...")
             # Render page to image
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
             image_bytes = pix.tobytes("png")
@@ -18,6 +24,8 @@ def parse_slides(file_path):
             # Extract text
             text = page.get_text()
             first_line = text.split('\n')[0].strip()[:60] if text.strip() else f"Slide {i+1}"
+            log(f"  Title: {first_line}")
+            log(f"  Content: {len(text)} chars")
             
             slides.append({
                 "page": i + 1,
@@ -26,6 +34,7 @@ def parse_slides(file_path):
                 "image": f"data:image/png;base64,{image_base64}"
             })
         
+        log(f"Done! Returning {len(slides)} slides to main.js")
         result = {
             "status": "success",
             "total_pages": len(doc),
@@ -33,6 +42,7 @@ def parse_slides(file_path):
         }
         print(json.dumps(result))
     except Exception as e:
+        log(f"ERROR: {e}")
         print(json.dumps({"status": "error", "message": str(e)}))
 
 if __name__ == "__main__":
