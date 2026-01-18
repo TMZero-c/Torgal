@@ -7,15 +7,17 @@ let audioCtx;
 let processor;
 let source;
 let stream;
+let stats = { totalConf: 0, count: 0, matched: 0 };
 
 const log = (tag, msg) => console.log(`[renderer] [${tag}] ${msg}`);
 
 function showSlide(i) {
     if (!slides.length) return;
     log('UI', `Showing slide ${i + 1}`);
-    current = i;
-    $('slide-image').src = slides[i].image;
-    $('slide-counter').textContent = `${i + 1} / ${slides.length}`;
+    current = Math.max(0, Math.min(i, slides.length - 1));
+    $('preview-img').src = slides[current].image;
+    $('slide-number').textContent = `${current + 1} / ${slides.length}`;
+    $('current-slide-num').textContent = current + 1;
 }
 
 async function start() {
@@ -36,9 +38,6 @@ async function start() {
     processor.connect(audioCtx.destination);
     listening = true;
     log('AUDIO', 'Microphone active, streaming to Python');
-    $('btn').textContent = 'Stop';
-    $('btn').className = 'on';
-    $('status').textContent = 'Listening';
 }
 
 function stop() {
@@ -48,25 +47,33 @@ function stop() {
     audioCtx?.close();
     stream?.getTracks().forEach(t => t.stop());
     listening = false;
-    $('btn').textContent = 'Start';
-    $('btn').className = '';
-    $('status').textContent = 'Stopped';
     window.api.reset();
+}
+
+function resetStats() {
+    stats = { totalConf: 0, count: 0, matched: 0 };
+    $('total-conf').textContent = '0%';
+    $('slides-matched').textContent = '0';
+    $('transcript-final').textContent = '';
+    $('transcript-partial').textContent = 'Listening...';
+    $('intent-label').textContent = 'Listening...';
+    $('conf-bar').style.width = '0%';
+    $('conf-text').textContent = 'Confidence: 0%';
 }
 
 function bindUi() {
     $('upload-btn').onclick = async () => {
         log('UPLOAD', 'Opening file dialog...');
-        const path = await window.api.openFileDialog();
-        if (path) {
-            log('UPLOAD', `File selected: ${path}`);
-            $('file-status').textContent = 'Loading...';
-        }
+        await window.api.openFileDialog();
     };
 
-    $('prev-btn').onclick = () => current > 0 && showSlide(current - 1);
-    $('next-btn').onclick = () => current < slides.length - 1 && showSlide(current + 1);
-    $('btn').onclick = () => listening ? stop() : start();
+    $('reset-btn').onclick = () => {
+        stop();
+        resetStats();
+    };
+
+    $('prev-btn').onclick = () => { if (current > 0) showSlide(current - 1); };
+    $('next-btn').onclick = () => { if (current < slides.length - 1) showSlide(current + 1); };
 
     window.api.onSlidesLoaded(data => {
         log('SLIDES', `Received slides-loaded event: ${data.status}`);
@@ -74,48 +81,46 @@ function bindUi() {
             log('SLIDES', `Got ${data.total_pages} slides with images`);
             slides = data.slides;
             showSlide(0);
-            $('slide-viewer').style.display = 'block';
-            $('file-status').textContent = `${data.total_pages} slides`;
-            $('status').textContent = 'Ready';
-        } else {
-            log('SLIDES', `Error: ${data.message}`);
-            $('file-status').textContent = 'Error';
+            $('total-slides').textContent = slides.length;
+            start(); // Auto-start listening when slides load
         }
     });
 
     window.api.onTranscript(msg => {
         log('MSG', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
-        if (msg.type === 'ready') $('status').textContent = 'Ready';
-        else if (msg.type === 'final') {
-            $('transcript').textContent += msg.text + ' ';
-            $('transcript').scrollTop = $('transcript').scrollHeight;
-        }
-        else if (msg.type === 'partial') $('partial').textContent = msg.text;
-        else if (msg.type === 'slide_transition') {
-            log('TRANSITION', `Slide ${msg.from_slide + 1} → ${msg.to_slide + 1} (${msg.confidence.toFixed(2)})`);
-            showSlide(msg.to_slide);
-            $('info').className = 'triggered';
-            $('info').textContent = `→ ${msg.to_slide + 1}: ${msg.slide_title}`;
-            setTimeout(() => $('info').className = '', 800);
-        }
-        else if (msg.type === 'slides_ready') {
-            log('SLIDES', `Server loaded ${msg.count} slides for matching`);
-        }
-        else if (msg.type === 'reset_done') {
-            log('RESET', 'Transcript cleared');
-            showSlide(0);
-            $('transcript').textContent = '';
-            $('info').textContent = '—';
+
+        if (msg.type === 'partial') {
+            $('transcript-partial').textContent = msg.text;
+        } else if (msg.type === 'final') {
+            const final = $('transcript-final');
+            final.textContent += (final.textContent ? '\n' : '') + msg.text;
+            $('transcript-partial').textContent = '';
+        } else if (msg.type === 'slide_transition' || msg.type === 'slide_set') {
+            const idx = msg.to_slide ?? msg.current_slide ?? 0;
+            showSlide(idx);
+
+            const conf = Math.round((msg.confidence ?? 0) * 100);
+            $('conf-bar').style.width = conf + '%';
+            $('conf-text').textContent = `Confidence: ${conf}%`;
+            $('intent-label').textContent = msg.intent ?? 'Slide Transition';
+            $('intent-type').textContent = msg.intent_type ?? '—';
+
+            if (conf > 0) {
+                stats.totalConf += conf;
+                stats.count++;
+                stats.matched++;
+                $('total-conf').textContent = Math.round(stats.totalConf / stats.count) + '%';
+                $('slides-matched').textContent = stats.matched;
+            }
+
+            if (msg.keywords?.length) {
+                $('keywords-container').innerHTML = msg.keywords.map(kw =>
+                    `<span class="keyword-tag">${kw}</span>`
+                ).join('');
+            }
         }
     });
 }
 
-window.addEventListener('DOMContentLoaded', bindUi); window.electronAPI.onTranscriptionResult((event, data) => {
-    if (data.type === 'SLIDE_CHANGE') {
-        goToSlide(data.target_slide);
-
-        if (data.highlight_keyword) {
-            showHighlightOnCanvas(data.highlight_keyword);
-        }
-    }
-}); 
+window.addEventListener('DOMContentLoaded', bindUi);
+showHighlightOnCanvas(data.highlight_keyword);
