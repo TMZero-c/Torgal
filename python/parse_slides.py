@@ -4,19 +4,26 @@ import json
 import base64
 from io import BytesIO
 
+# ensure stdout/stderr use UTF-8 on Windows to avoid mojibake
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace") # type: ignore
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace") # type: ignore
+except Exception:
+    pass
+
 from logger import get_logger
 
 log = get_logger("parse_slides")
 
 def parse_slides(file_path):
-    log(f"Opening: {file_path}")
+    log(f"Opening: {file_path}", err=True)
     try:
         doc = fitz.open(file_path)
-        log(f"Opened document with {len(doc)} pages")
+        log(f"Opened document with {len(doc)} pages", err=True)
         slides = []
         
         for i, page in enumerate(doc): # type: ignore
-            log(f"Processing page {i+1}...")
+            log(f"Processing page {i+1}...", err=True)
             # Render page to image
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
             image_bytes = pix.tobytes("png")
@@ -25,8 +32,8 @@ def parse_slides(file_path):
             # Extract text
             text = page.get_text()
             first_line = text.split('\n')[0].strip()[:60] if text.strip() else f"Slide {i+1}"
-            log(f"  Title: {first_line}")
-            log(f"  Content: {len(text)} chars")
+            log(f"  Title: {first_line}", err=True)
+            log(f"  Content: {len(text)} chars", err=True)
             
             slides.append({
                 "page": i + 1,
@@ -35,7 +42,7 @@ def parse_slides(file_path):
                 "image": f"data:image/png;base64,{image_base64}"
             })
         
-        log(f"Done! Returning {len(slides)} slides to main.js")
+        log(f"Done! Returning {len(slides)} slides to main.js", err=True)
         result = {
             "status": "success",
             "total_pages": len(doc),

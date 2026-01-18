@@ -9,6 +9,13 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
+# ensure stdout/stderr use UTF-8 on Windows to avoid mojibake
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
+except Exception:
+    pass
+
 from faster_whisper import WhisperModel
 
 from config import (
