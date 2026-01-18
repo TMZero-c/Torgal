@@ -6,7 +6,7 @@ body { font-family: 'Inter', sans-serif; background: #1a1a1a; color: #fff; heigh
 .container { display: flex; height: 100vh; }
 
 .left-panel { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #1a1a1a; border-right: 1px solid #1a1a1a; }
-.right-panel { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #1a1a1a; overflow: auto; }
+.right-panel { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #1a1a1a; overflow: hidden; }
 
 .slide-preview { flex: 0 0 40%; background: #000; border-radius: 0px; margin-bottom: 35px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
 .slide-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -146,26 +146,33 @@ body { font-family: 'Inter', sans-serif; background: #1a1a1a; color: #fff; heigh
     border-radius: 0px;
 }
 
-.transcript-panel { flex: 1; background: #333; border-radius: 0px; padding: 15px; overflow-y: auto; margin-bottom: 15px; }
-.transcript-panel h3 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 10px; }
-.transcript-text { font-size: 14px; line-height: 1.5; color: #ddd; }
+.transcript-panel { flex: 1; background: #333; border-radius: 0px; padding: 15px; overflow-y: hidden; margin-bottom: 0; display: flex; flex-direction: column; }
+.transcript-panel h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 10px; }
+.transcript-header { position: static; padding: 0; margin-bottom: 10px; }
+.transcript-text { font-size: 14px; line-height: 1.5; color: #ddd; white-space: pre-wrap; overflow-y: auto; }
 .transcript-text.partial { opacity: 0.6; font-style: italic; }
 
 .keywords-impact-card { background: #333; border-radius: 0px; padding: 15px; margin-bottom: 15px; }
 .keywords-impact-card h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
-.keywords-impact { display: flex; flex-wrap: wrap; gap: 8px; min-height: 24px; align-items: center; }
-.keywords-impact-tag { background: #D4953C; color: white; padding: 6px 12px; border-radius: 0px; font-size: 12px; font-weight: 500; transition: all 0.2s; }
+.keywords-impact { display: flex; flex-wrap: nowrap; gap: 8px; min-height: 24px; align-items: center; overflow: hidden; }
+.keywords-impact-tag { background: #D4953C; color: white; padding: 6px 12px; border-radius: 0px; font-size: 12px; font-weight: 500; transition: all 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .keywords-impact-tag:hover { background: #E5A750; box-shadow: 0 0 8px rgba(212, 149, 60, 0.4); }
 
-.stats-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-.stat-card { background: #333; border-radius: 0px; padding: 15px; margin-bottom: 15px; }
+.stats-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: stretch; }
+.stat-card { background: #333; border-radius: 0px; padding: 15px; margin-bottom: 15px; height: 120px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
 .stat-card h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
 .stat-value { font-size: 28px; font-weight: 600; color: #D4953C; }
 .stat-detail { font-size: 12px; color: #aaa; margin-top: 5px; }
 
 .intent-card { background: #333; border-radius: 0px; padding: 15px; margin-bottom: 15px; }
-.intent-card h4 { font-size: 12px; text-transform: none; color: #999; margin-bottom: 8px; }
+.intent-card h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
 .intent-label { font-size: 16px; font-weight: 600; color: #D4953C; margin-bottom: 8px; }
+
+.decision-card .decision-row { margin-top: 6px; flex-wrap: nowrap; overflow: hidden; }
+.decision-card .decision-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+.listening-card { background: #333; border-radius: 0px; padding: 12px 15px; margin-bottom: 15px; }
+.listening-card h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
 
 .decision-summary { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .decision-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: #ccc; }

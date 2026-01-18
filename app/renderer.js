@@ -95,7 +95,7 @@ function resetStats() {
     const slidesMatched = $('slides-matched');
     if (slidesMatched) slidesMatched.textContent = '0';
     const transcriptFinal = $('transcript-final');
-    if (transcriptFinal) transcriptFinal.textContent = '';
+    if (transcriptFinal) transcriptFinal.innerHTML = '';
     const transcriptPartial = $('transcript-partial');
     if (transcriptPartial) transcriptPartial.textContent = 'Listening...';
     const intentLabel = $('intent-label');
@@ -131,7 +131,7 @@ function resetStats() {
     });
 
     const keywordsImpact = $('keywords-impact-container');
-    if (keywordsImpact) keywordsImpact.innerHTML = '<span class="stat-detail">Waiting for keywords...</span>';
+    if (keywordsImpact) keywordsImpact.innerHTML = '<span class="stat-detail">Waiting for phrase...</span>';
 }
 
 function clampPct(value) {
@@ -144,6 +144,32 @@ function formatIntentLabel(msg) {
     if (msg.intent === 'backward') return targetSlide ? `Backward -> Slide ${targetSlide}` : 'Backward';
     if (msg.intent === 'jump') return targetSlide ? `Jump -> Slide ${targetSlide}` : 'Jump';
     return 'Stay';
+}
+
+function updateKeywords(phrases) {
+    const keywordsImpact = $('keywords-impact-container');
+    if (!keywordsImpact) return;
+    if (Array.isArray(phrases) && phrases.length) {
+        const phrase = phrases[0];
+        keywordsImpact.innerHTML = `<span class="keywords-impact-tag">${phrase}</span>`;
+        return;
+    }
+    if (typeof phrases === 'string' && phrases.trim()) {
+        keywordsImpact.innerHTML = `<span class="keywords-impact-tag">${phrases}</span>`;
+        return;
+    }
+    keywordsImpact.innerHTML = '<span class="stat-detail">No phrase matched</span>';
+}
+
+function appendTranscriptLine(text) {
+    const final = $('transcript-final');
+    if (!final || !text) return;
+    const cleaned = String(text).replace(/\s+/g, ' ').trim();
+    if (!cleaned) return;
+    final.textContent += (final.textContent ? ' ' : '') + cleaned;
+
+    const panel = $('transcript-panel');
+    if (panel) panel.scrollTop = panel.scrollHeight;
 }
 
 function updateDecisionSnapshot(msg) {
@@ -177,6 +203,11 @@ function updateDecisionSnapshot(msg) {
 
     const intentLabelEl = $('intent-label');
     if (intentLabelEl) intentLabelEl.textContent = intentLabel;
+
+    const phrases = Array.isArray(msg.phrases) && msg.phrases.length
+        ? msg.phrases
+        : msg.keywords;
+    updateKeywords(phrases);
 
     const slotKeys = ['prev', 'current', 'next'];
     const options = Array.isArray(msg.options) && msg.options.length
@@ -259,7 +290,7 @@ function bindUi() {
             const isQaMode = qaModeToggle.checked;
             const modeText = $('mode-text');
             if (modeText) modeText.textContent = isQaMode ? 'Q&A' : 'Regular';
-            
+
             log('MODE', `Switched to ${isQaMode ? 'Q&A' : 'Regular'} mode`);
             window.api.setQaMode(isQaMode);
         };
@@ -294,12 +325,11 @@ function bindUi() {
 
         if (msg.type === 'partial') {
             const transcriptPartial = $('transcript-partial');
-            if (transcriptPartial) transcriptPartial.textContent = msg.text;
+            if (transcriptPartial) transcriptPartial.textContent = msg.text || 'Listening...';
         } else if (msg.type === 'final') {
-            const final = $('transcript-final');
-            if (final) final.textContent += (final.textContent ? '\n' : '') + msg.text;
+            appendTranscriptLine(msg.text);
             const transcriptPartial = $('transcript-partial');
-            if (transcriptPartial) transcriptPartial.textContent = '';
+            if (transcriptPartial) transcriptPartial.textContent = 'Listening...';
         } else if (msg.type === 'match_eval') {
             updateDecisionSnapshot(msg);
         } else if (msg.type === 'slide_transition' || msg.type === 'slide_set') {
@@ -325,13 +355,11 @@ function bindUi() {
                 if (slidesMatched) slidesMatched.textContent = stats.matched;
             }
 
-            if (msg.keywords?.length) {
-                const keywordsImpact = $('keywords-impact-container');
-                if (keywordsImpact) {
-                    keywordsImpact.innerHTML = msg.keywords.map(kw =>
-                        `<span class="keywords-impact-tag">${kw}</span>`
-                    ).join('');
-                }
+            const phrases = Array.isArray(msg.phrases) && msg.phrases.length
+                ? msg.phrases
+                : msg.keywords;
+            if (phrases?.length) {
+                updateKeywords(phrases);
             }
         }
     });

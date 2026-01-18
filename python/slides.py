@@ -398,6 +398,88 @@ class SlideMatcher:
                 },
             ]
 
+        def _keywords_for_decision() -> list[str]:
+            if not speech_tokens:
+                return []
+            current_tokens = self.slides[self.current].tokens
+            target_tokens = self.slides[target].tokens
+            if target == self.current:
+                base = speech_tokens & current_tokens
+                title_tokens = self.slides[self.current].title_tokens
+            else:
+                overlap_target = speech_tokens & target_tokens
+                overlap_current = speech_tokens & current_tokens
+                base = overlap_target - overlap_current
+                if not base:
+                    base = overlap_target
+                title_tokens = self.slides[target].title_tokens
+            if not base:
+                return []
+            ordered = sorted(
+                base,
+                key=lambda w: (0 if w in title_tokens else 1, -len(w), w),
+            )
+            return ordered[:8]
+
+        def _phrases_for_decision() -> list[str]:
+            words = re.findall(r"[a-z0-9']+", text.lower())
+            if not words:
+                return []
+            words = words[:60]
+            current_tokens = self.slides[self.current].tokens
+            target_tokens = self.slides[target].tokens
+            title_tokens = self.slides[target].title_tokens if target != self.current else self.slides[self.current].title_tokens
+
+            candidates = []
+            max_len = 3
+            for i in range(len(words)):
+                for size in range(2, max_len + 1):
+                    end = i + size
+                    if end > len(words):
+                        break
+                    chunk = words[i:end]
+                    content = [w for w in chunk if len(w) > 2 and w not in _STOPWORDS]
+                    if len(content) < 1:
+                        continue
+                    phrase = " ".join(chunk)
+                    candidates.append((phrase, content, i))
+
+            if not candidates:
+                return []
+
+            scored = []
+            for phrase, content, idx in candidates:
+                target_overlap = sum(1 for w in content if w in target_tokens)
+                current_overlap = sum(1 for w in content if w in current_tokens)
+                title_overlap = sum(1 for w in content if w in title_tokens)
+                if target == self.current:
+                    if current_overlap < 1:
+                        continue
+                    score = (current_overlap, title_overlap, len(content))
+                else:
+                    if target_overlap < 1:
+                        continue
+                    score = (target_overlap - current_overlap, target_overlap, title_overlap)
+                scored.append((score, idx, phrase))
+
+            if not scored:
+                return []
+
+            scored.sort(key=lambda item: (-item[0][0], -item[0][1], -item[0][2], item[1]))
+            seen = set()
+            phrases = []
+            for _, _, phrase in scored:
+                if phrase in seen:
+                    continue
+                seen.add(phrase)
+                phrases.append(phrase)
+                if len(phrases) >= 1:
+                    break
+            return phrases
+
+        keywords = _keywords_for_decision()
+        phrases = _phrases_for_decision()
+
         eval_payload = {
             "current_slide": int(self.current),
             "prev_slide": int(prev_slide),
@@ -421,6 +503,8 @@ class SlideMatcher:
             "cooldown_words": int(self.cooldown),
             "words_since": int(self.words_since),
             "options": options,
+            "keywords": keywords,
+            "phrases": phrases,
         }
 
         if would_transition:

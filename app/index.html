@@ -43,14 +43,8 @@
         <div class="right-panel">
 
             <div class="intent-card">
-                <h4>Decision Snapshot</h4>
-                <div class="intent-label" id="intent-label">Listening...</div>
+                <h4>Decision Analytics</h4>
                 <div class="decision-summary">
-                    <div class="decision-row">
-                        <span class="decision-label">Decision</span>
-                        <span class="decision-value" id="decision-intent">—</span>
-                        <span class="decision-pill" id="decision-status">—</span>
-                    </div>
                     <div class="decision-row">
                         <span class="decision-label">Confidence</span>
                         <span class="decision-value" id="decision-confidence">—</span>
@@ -89,12 +83,10 @@
             </div>
 
             <div class="stats-container">
-                <div class="stat-card">
-                    <h4>Total Confidence</h4>
-                    <div class="stat-value" id="total-conf">0%</div>
-                    <div class="stat-detail">Average confidence</div>
+                <div class="stat-card decision-card">
+                    <h4>Decision</h4>
+                    <div class="intent-label" id="intent-label">Listening...</div>
                 </div>
-
                 <!--
                 <div class="stat-card">
                     <h4>Slides Matched</h4>
@@ -110,8 +102,10 @@
                 </div>
             -->
                 <div class="stat-card">
-                    <h4>Intent Type</h4>
-                    <div class="intent-label" id="intent-type">—</div>
+                    <h4>Intent-Changing Phrase</h4>
+                    <div id="keywords-impact-container" class="keywords-impact">
+                        <span class="stat-detail">Waiting for phrase...</span>
+                    </div>
                 </div>
             </div>
 
@@ -124,16 +118,13 @@
             </div>
         -->
 
-            <div class="keywords-impact-card">
-                <h4>Intent-Changing Keywords</h4>
-                <div id="keywords-impact-container" class="keywords-impact">
-                    <span class="stat-detail">Waiting for keywords...</span>
-                </div>
+            <div class="listening-card">
+                <h4>Incoming Speech</h4>
+                <div id="transcript-partial" class="transcript-text partial">Listening...</div>
             </div>
 
-            <div class="transcript-panel">
-                <h3>Transcript</h3>
-                <div id="transcript-partial" class="transcript-text partial">Listening...</div>
+            <div class="transcript-panel" id="transcript-panel">
+                <h4 class="transcript-header">Transcript</h4>
                 <div id="transcript-final" class="transcript-text"></div>
             </div>
         </div>
