@@ -49,6 +49,7 @@ body { font-family: 'Inter', sans-serif; background: #1a1a1a; color: #fff; heigh
 .controls { flex: 0 0 auto; display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
 .controls button { padding: 10px 16px; background: #D4953C; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .controls button:hover { background: #E5E0D8; }
+.controls button:disabled { cursor: not-allowed; opacity: 0.6; background: #b07b3d; }
 
 .mode-toggle { flex: 1; display: flex; align-items: center; margin-left: 20px; }
 .toggle-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }

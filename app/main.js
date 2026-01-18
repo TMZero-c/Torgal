@@ -1,11 +1,85 @@
 const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const projectRoot = path.join(__dirname, '..');
-// Windows venv path; update if you move the env or run on macOS/Linux.
-const pythonPath = path.join(projectRoot, '.venv', 'Scripts', 'python.exe');
-const serverScript = path.join(projectRoot, 'python', 'server.py');
+
+function isWindows() {
+  return process.platform === 'win32';
+}
+
+function resolvePythonCommand() {
+  // Priority:
+  // 1) Explicit env override
+  // 2) Dev venv at repo root
+  // 3) Windows launcher 'py -3'
+  // 4) python or python3 on PATH
+  // Note: When packaged, we use bundled executables directly, not Python
+  const candidates = [];
+
+  if (process.env.PYTHON_PATH) candidates.push(process.env.PYTHON_PATH);
+
+  if (isWindows()) {
+    candidates.push(path.join(projectRoot, '.venv', 'Scripts', 'python.exe'));
+  } else {
+    candidates.push(path.join(projectRoot, '.venv', 'bin', 'python'));
+  }
+
+  // PATH-level fallbacks (do not existsSync these)
+  if (isWindows()) candidates.push('py');
+  candidates.push('python3');
+  candidates.push('python');
+
+  for (const cmd of candidates) {
+    // If it's a bare command, just return it; we'll handle spawn errors later.
+    if (!cmd.includes(path.sep)) return cmd;
+    try {
+      if (fs.existsSync(cmd)) return cmd;
+    } catch (_) { }
+  }
+  return null;
+}
+
+// Resolve bundled executable path (for packaged app)
+function resolveBundledExe(exeName) {
+  const exeFile = isWindows() ? `${exeName}.exe` : exeName;
+
+  // When packaged, look in resources folder
+  if (app.isPackaged && process.resourcesPath) {
+    const exePath = path.join(process.resourcesPath, exeName, exeFile);
+    if (fs.existsSync(exePath)) return exePath;
+  }
+
+  // Dev mode: check if dist folder exists (for testing bundled builds)
+  const devExePath = path.join(projectRoot, 'python', 'dist', exeName, exeFile);
+  if (fs.existsSync(devExePath)) return devExePath;
+
+  return null;
+}
+
+function resolvePythonScript(scriptName) {
+  // Try multiple locations to support dev and packaged with asar unpack.
+  const locations = [
+    // When packaged and asar unpacked
+    path.join(process.resourcesPath || '', 'app.asar.unpacked', 'python', scriptName),
+    // When we explicitly copy python into resources (rare)
+    path.join(process.resourcesPath || '', 'python', scriptName),
+    // Dev path from repo root
+    path.join(projectRoot, 'python', scriptName),
+  ].filter(Boolean);
+
+  for (const p of locations) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch (_) { }
+  }
+  // Fall back to dev path; spawn will report error if missing
+  return path.join(projectRoot, 'python', scriptName);
+}
+
+let pythonCmd = null;
+let serverScript = resolvePythonScript('server.py');
 
 let python = null;
 let presenterWin = null;
@@ -21,11 +95,41 @@ function broadcast(channel, data) {
   });
 }
 
+let lastStatus = null;
+
+function broadcastStatus(status, data = {}) {
+  lastStatus = { type: 'status', status, ...data };
+  broadcast('transcript', lastStatus);
+}
+
+function sendLastStatus(win) {
+  if (lastStatus && win && !win.isDestroyed()) {
+    win.webContents.send('transcript', lastStatus);
+  }
+}
+
 function startPython() {
   // Python server streams newline-delimited JSON on stdout.
   log('STARTUP', 'Spawning Python server...');
+  broadcastStatus('model_loading');
   const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
-  python = spawn(pythonPath, [serverScript], { env });
+
+  // Check for bundled executable first
+  const bundledServer = resolveBundledExe('server');
+  if (bundledServer) {
+    log('STARTUP', `Using bundled executable: ${bundledServer}`);
+    python = spawn(bundledServer, [], { env });
+  } else {
+    // Fall back to Python interpreter
+    if (!pythonCmd) pythonCmd = resolvePythonCommand();
+    const args = [];
+    if (pythonCmd === 'py' && isWindows()) {
+      args.push('-3');
+    }
+    args.push(serverScript);
+    log('STARTUP', `Using Python: ${pythonCmd} ${args.join(' ')}`);
+    python = spawn(pythonCmd || 'python', args, { env });
+  }
 
   let buffer = '';
   python.stdout.on('data', data => {
@@ -38,6 +142,9 @@ function startPython() {
         try {
           const msg = JSON.parse(line);
           log('FROM_PYTHON', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
+          if (msg.type === 'ready') {
+            broadcastStatus('model_ready');
+          }
           broadcast('transcript', msg);
         } catch (e) { }
       }
@@ -95,22 +202,55 @@ ipcMain.handle('dialog:openFile', async () => {
 function runSlideParser(filePath) {
   // Parse slides in a short-lived Python process (returns images + text).
   log('PARSE', 'Starting slide parser...');
-  const scriptPath = path.join(projectRoot, 'python', 'parse_slides.py');
+  broadcastStatus('slides_processing', { file: filePath });
   const env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
-  const py = spawn(pythonPath, [scriptPath, filePath], { env });
+
+  let py;
+  // Check for bundled executable first
+  const bundledParser = resolveBundledExe('parse_slides');
+  if (bundledParser) {
+    log('PARSE', `Using bundled executable: ${bundledParser}`);
+    py = spawn(bundledParser, [filePath], { env });
+  } else {
+    // Fall back to Python interpreter
+    const scriptPath = resolvePythonScript('parse_slides.py');
+    if (!pythonCmd) pythonCmd = resolvePythonCommand();
+    const args = [];
+    if (pythonCmd === 'py' && isWindows()) args.push('-3');
+    args.push(scriptPath, filePath);
+    log('PARSE', `Using Python: ${pythonCmd} ${args.join(' ')}`);
+    py = spawn(pythonCmd || 'python', args, { env });
+  }
+
   let output = '';
   py.stdout.on('data', data => output += data.toString());
+  py.on('error', err => {
+    log('PARSE', `Parser error: ${err.message}`);
+    broadcastStatus('slides_failed', { message: err.message });
+  });
   py.on('close', code => {
     log('PARSE', `Parser exited with code ${code}`);
-    if (code === 0) {
-      try {
-        const slideData = JSON.parse(output);
+    if (code !== 0) {
+      broadcastStatus('slides_failed', { code });
+      return;
+    }
+    try {
+      const slideData = JSON.parse(output);
+      if (slideData.status === 'success') {
         log('PARSE', `Parsed ${slideData.total_pages} slides`);
+        broadcastStatus('slides_ready', { count: slideData.total_pages });
         log('FLOW', '-> Sending slides-loaded to both windows');
         broadcast('slides-loaded', slideData);
         log('FLOW', '-> Sending load_slides to Python server');
         sendToPython({ type: 'load_slides', slides: slideData.slides });
-      } catch (e) { console.error(e); }
+      } else {
+        broadcastStatus('slides_failed', { message: slideData.message || 'Slide parse failed' });
+        log('FLOW', '-> Sending slides-loaded error to both windows');
+        broadcast('slides-loaded', slideData);
+      }
+    } catch (e) {
+      broadcastStatus('slides_failed', { message: 'Invalid slide parser output' });
+      console.error(e);
     }
   });
 }
@@ -127,6 +267,7 @@ function createWindows() {
   presenterWin.loadFile(path.join(__dirname, 'index.html'));
   presenterWin.setTitle('Torgal (presenter)');
   presenterWin.webContents.openDevTools();
+  presenterWin.webContents.on('did-finish-load', () => sendLastStatus(presenterWin));
 
   slideshowWin = new BrowserWindow({
     width: 800, height: 600,
@@ -139,6 +280,7 @@ function createWindows() {
   });
   slideshowWin.loadFile(path.join(__dirname, 'slideshow.html'));
   slideshowWin.setTitle('Torgal (Analysis)');
+  slideshowWin.webContents.on('did-finish-load', () => sendLastStatus(slideshowWin));
 }
 
 app.whenReady().then(() => {

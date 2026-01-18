@@ -19,6 +19,32 @@ let lastRms = 0;
 
 const log = (tag, msg) => console.log(`[renderer] [${tag}] ${msg}`);
 
+let uploadBtnEl = null;
+let modelReady = false;
+let slidesProcessing = false;
+const uploadText = {
+    idle: 'Upload Presentation',
+    modelLoading: 'Loading model...',
+    slidesProcessing: 'Processing slides...'
+};
+
+function refreshUploadButton() {
+    const btn = uploadBtnEl || $('upload-btn');
+    if (!btn) return;
+    if (!modelReady) {
+        btn.disabled = true;
+        btn.textContent = uploadText.modelLoading;
+        return;
+    }
+    if (slidesProcessing) {
+        btn.disabled = true;
+        btn.textContent = uploadText.slidesProcessing;
+        return;
+    }
+    btn.disabled = false;
+    btn.textContent = uploadText.idle;
+}
+
 function showSlide(i) {
     if (!slides.length) return;
     log('UI', `Showing slide ${i + 1}`);
@@ -267,7 +293,11 @@ function bindUi() {
         return;
     }
 
+    uploadBtnEl = uploadBtn;
+    refreshUploadButton();
+
     uploadBtn.onclick = async () => {
+        if (uploadBtn.disabled) return;
         log('UPLOAD', 'Opening file dialog...');
         try {
             const result = await window.api.openFileDialog();
@@ -317,11 +347,36 @@ function bindUi() {
             if (placeholder) placeholder.classList.add('hidden');
 
             if ($('upload-btn')) start(); // Auto-start listening when slides load
+            slidesProcessing = false;
+            refreshUploadButton();
+            return;
         }
+        slidesProcessing = false;
+        refreshUploadButton();
     });
 
     window.api.onTranscript(msg => {
         log('MSG', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
+
+        if (msg.type === 'ready') {
+            modelReady = true;
+            refreshUploadButton();
+            return;
+        }
+
+        if (msg.type === 'status') {
+            if (msg.status === 'model_loading') {
+                modelReady = false;
+            } else if (msg.status === 'model_ready') {
+                modelReady = true;
+            } else if (msg.status === 'slides_processing') {
+                slidesProcessing = true;
+            } else if (msg.status === 'slides_ready' || msg.status === 'slides_failed') {
+                slidesProcessing = false;
+            }
+            refreshUploadButton();
+            return;
+        }
 
         if (msg.type === 'partial') {
             const transcriptPartial = $('transcript-partial');

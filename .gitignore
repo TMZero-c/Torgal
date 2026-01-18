@@ -4,3 +4,5 @@
 /app/out/
 /python/config.py
 /app/config.js
+/python/dist
+/python/build
