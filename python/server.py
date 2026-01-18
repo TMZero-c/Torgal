@@ -63,16 +63,37 @@ class StreamingTranscriber:
             language="en",
             word_timestamps=True,
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=300),
+            vad_parameters=dict(
+                min_silence_duration_ms=300,
+                speech_pad_ms=200,
+                threshold=0.5,  # More aggressive speech detection
+            ),
             condition_on_previous_text=False,
-            no_speech_threshold=0.5,
+            no_speech_threshold=0.6,  # Increased - reject more silence
+            log_prob_threshold=-0.8,  # Filter low-confidence outputs
+            hallucination_silence_threshold=0.5,  # Skip if likely hallucination
+            suppress_tokens=[-1],  # Suppress special tokens
         )
+        
+        # Common hallucination phrases to filter out
+        HALLUCINATIONS = {
+            "thank you", "thanks", "thank you for watching", "thanks for watching",
+            "subscribe", "like and subscribe", "see you", "bye", "goodbye",
+            "please subscribe", "thank you so much",
+        }
         
         # Extract words with timestamps
         current_words = []
         for seg in segments:
+            # Skip entire segment if it looks like a hallucination
+            seg_text = seg.text.strip().lower()
+            if seg_text in HALLUCINATIONS:
+                continue
             if seg.words:
                 for w in seg.words:
+                    # Filter low probability words
+                    if w.probability < 0.5:
+                        continue
                     current_words.append({
                         "word": w.word.strip(),
                         "start": w.start,
@@ -118,8 +139,8 @@ class StreamingTranscriber:
 
 
 def main():
-    log("Loading Whisper model (small.en + GPU)...")
-    model = WhisperModel("small.en", device="cuda", compute_type="float16")
+    log("Loading Whisper model (distil-large-v3 + GPU)...")
+    model = WhisperModel("distil-large-v3", device="cuda", compute_type="float16")
     log("Model loaded!")
     
     transcriber = StreamingTranscriber(model)
