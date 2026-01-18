@@ -19,7 +19,7 @@ def process_presentation(pdf_path):
         words = page.get_text("words") 
 
         # 3. Create a vector embedding of the slide text
-        embedding = model.encode(text).tolist()
+        embedding = model.encode(text).tolist() # type: ignore
 
         presentation_data.append({
             "slide": page_num + 1,

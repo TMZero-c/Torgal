@@ -1,11 +1,12 @@
-import fitz # PyMuPDF
+import fitz  # PyMuPDF
 import sys
 import json
 import base64
 from io import BytesIO
 
-def log(msg):
-    print(f"[parse_slides] {msg}", file=sys.stderr, flush=True)
+from logger import get_logger
+
+log = get_logger("parse_slides")
 
 def parse_slides(file_path):
     log(f"Opening: {file_path}")
