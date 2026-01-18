@@ -90,21 +90,125 @@ function stop() {
 
 function resetStats() {
     stats = { totalConf: 0, count: 0, matched: 0 };
-    $('total-conf').textContent = '0%';
-    $('slides-matched').textContent = '0';
-    $('transcript-final').textContent = '';
-    $('transcript-partial').textContent = 'Listening...';
-    $('intent-label').textContent = 'Listening...';
-    const spectrumFill = $('spectrum-fill');
-    if (spectrumFill) {
-        spectrumFill.style.left = '50%';
-        spectrumFill.style.width = '0%';
-    }
-    const spectrumText = $('spectrum-text');
-    if (spectrumText) spectrumText.textContent = 'Intent: 0';
-    
+    const totalConf = $('total-conf');
+    if (totalConf) totalConf.textContent = '0%';
+    const slidesMatched = $('slides-matched');
+    if (slidesMatched) slidesMatched.textContent = '0';
+    const transcriptFinal = $('transcript-final');
+    if (transcriptFinal) transcriptFinal.textContent = '';
+    const transcriptPartial = $('transcript-partial');
+    if (transcriptPartial) transcriptPartial.textContent = 'Listening...';
+    const intentLabel = $('intent-label');
+    if (intentLabel) intentLabel.textContent = 'Listening...';
+    const decisionIntent = $('decision-intent');
+    if (decisionIntent) decisionIntent.textContent = '—';
+    const decisionStatus = $('decision-status');
+    if (decisionStatus) decisionStatus.textContent = '—';
+    const decisionConfidence = $('decision-confidence');
+    if (decisionConfidence) decisionConfidence.textContent = '—';
+    const decisionThreshold = $('decision-threshold');
+    if (decisionThreshold) decisionThreshold.textContent = '—';
+    const decisionDiff = $('decision-diff');
+    if (decisionDiff) decisionDiff.textContent = '—';
+
+    const labelDefaults = {
+        prev: 'Prev',
+        current: 'Current',
+        next: 'Next',
+    };
+
+    ['prev', 'current', 'next'].forEach(key => {
+        const row = $(`option-${key}-row`);
+        if (row) row.classList.remove('option-best');
+        const label = $(`option-${key}-label`);
+        if (label) label.textContent = labelDefaults[key];
+        const fill = $(`option-${key}-fill`);
+        if (fill) fill.style.width = '0%';
+        const value = $(`option-${key}-value`);
+        if (value) value.textContent = '0%';
+        const threshold = $(`option-${key}-threshold`);
+        if (threshold) threshold.style.left = '0%';
+    });
+
     const keywordsImpact = $('keywords-impact-container');
     if (keywordsImpact) keywordsImpact.innerHTML = '<span class="stat-detail">Waiting for keywords...</span>';
+}
+
+function clampPct(value) {
+    return Math.max(0, Math.min(100, value));
+}
+
+function formatIntentLabel(msg) {
+    const targetSlide = Number.isFinite(msg.target_slide) ? msg.target_slide + 1 : null;
+    if (msg.intent === 'forward') return targetSlide ? `Forward -> Slide ${targetSlide}` : 'Forward';
+    if (msg.intent === 'backward') return targetSlide ? `Backward -> Slide ${targetSlide}` : 'Backward';
+    if (msg.intent === 'jump') return targetSlide ? `Jump -> Slide ${targetSlide}` : 'Jump';
+    return 'Stay';
+}
+
+function updateDecisionSnapshot(msg) {
+    const targetPct = clampPct(Math.round((msg.target_sim ?? 0) * 100));
+    const thresholdPct = clampPct(Math.round((msg.threshold ?? 0) * 100));
+    const diffPct = Math.round((msg.diff ?? 0) * 100);
+    const reqDiffPct = Math.round((msg.required_diff ?? 0) * 100);
+    const bestPct = clampPct(Math.round((msg.best_sim ?? 0) * 100));
+
+    const thresholdText = `Threshold: ${thresholdPct}%`;
+    const diffSign = diffPct > 0 ? '+' : '';
+    const diffText = `Diff: ${diffSign}${diffPct}% (req ${reqDiffPct}%)`;
+
+    const intentLabel = formatIntentLabel(msg);
+    const actionText = msg.cooldown_blocked
+        ? 'Cooldown'
+        : msg.would_transition
+            ? 'Will act'
+            : 'No action';
+
+    const decisionIntent = $('decision-intent');
+    if (decisionIntent) decisionIntent.textContent = intentLabel;
+    const decisionStatus = $('decision-status');
+    if (decisionStatus) decisionStatus.textContent = actionText;
+    const decisionConfidence = $('decision-confidence');
+    if (decisionConfidence) decisionConfidence.textContent = `${targetPct}%`;
+    const decisionThreshold = $('decision-threshold');
+    if (decisionThreshold) decisionThreshold.textContent = `${thresholdPct}%`;
+    const decisionDiff = $('decision-diff');
+    if (decisionDiff) decisionDiff.textContent = diffText;
+
+    const intentLabelEl = $('intent-label');
+    if (intentLabelEl) intentLabelEl.textContent = intentLabel;
+
+    const slotKeys = ['prev', 'current', 'next'];
+    const options = Array.isArray(msg.options) && msg.options.length
+        ? msg.options.slice(0, slotKeys.length)
+        : [
+            { label: 'Prev', sim: msg.prev_sim, slide: msg.prev_slide },
+            { label: 'Current', sim: msg.current_sim, slide: msg.current_slide },
+            { label: 'Next', sim: msg.next_sim, slide: msg.next_slide },
+        ];
+
+    const optionPercents = options.map(opt => clampPct(Math.round((opt.sim ?? 0) * 100)));
+    const maxPercent = optionPercents.length ? Math.max(...optionPercents) : 0;
+
+    options.forEach((opt, idx) => {
+        const key = slotKeys[idx];
+        if (!key) return;
+        const pct = optionPercents[idx] ?? 0;
+        const row = $(`option-${key}-row`);
+        if (row) row.classList.toggle('option-best', pct === maxPercent);
+        const label = $(`option-${key}-label`);
+        if (label) {
+            const text = opt.label ?? label.textContent;
+            label.textContent = text;
+            label.title = text;
+        }
+        const fill = $(`option-${key}-fill`);
+        if (fill) fill.style.width = `${pct}%`;
+        const value = $(`option-${key}-value`);
+        if (value) value.textContent = `${pct}%`;
+        const threshold = $(`option-${key}-threshold`);
+        if (threshold) threshold.style.left = `${thresholdPct}%`;
+    });
 }
 
 function generateThumbnails() {
@@ -183,35 +287,11 @@ function bindUi() {
             if (final) final.textContent += (final.textContent ? '\n' : '') + msg.text;
             const transcriptPartial = $('transcript-partial');
             if (transcriptPartial) transcriptPartial.textContent = '';
+        } else if (msg.type === 'match_eval') {
+            updateDecisionSnapshot(msg);
         } else if (msg.type === 'slide_transition' || msg.type === 'slide_set') {
             const idx = msg.to_slide ?? msg.current_slide ?? 0;
             showSlide(idx);
-
-            // Update spectrum meter based on intent direction
-            // intent should be something like "go forward" or "go backward" or "stay"
-            let intentValue = 0; // -1 to 1
-            const intentText = msg.intent ? msg.intent.toLowerCase() : '';
-            
-            if (intentText.includes('backward') || intentText.includes('previous') || intentText.includes('back')) {
-                intentValue = -1;
-            } else if (intentText.includes('forward') || intentText.includes('next') || intentText.includes('continue')) {
-                intentValue = 1;
-            }
-            // else intentValue stays 0 for neutral
-            
-            const spectrumFill = $('spectrum-fill');
-            if (spectrumFill) {
-                // Calculate position: -1 is at 0%, 0 is at 50%, 1 is at 100%
-                const fillPercentage = ((intentValue + 1) / 2) * 100;
-                const leftPosition = 50 + (intentValue * 50);
-                
-                spectrumFill.style.left = leftPosition + '%';
-                spectrumFill.style.width = '20px';
-                spectrumFill.style.marginLeft = '-10px'; // Center the fill indicator
-            }
-            
-            const spectrumText = $('spectrum-text');
-            if (spectrumText) spectrumText.textContent = `Intent: ${intentValue}`;
 
             const intentLabel = $('intent-label');
             if (intentLabel) intentLabel.textContent = msg.intent ?? 'Slide Transition';

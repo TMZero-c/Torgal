@@ -59,6 +59,7 @@ class IpcType(str, Enum):
     FINAL = "final"
     PARTIAL = "partial"
     SLIDE_TRANSITION = "slide_transition"
+    MATCH_EVAL = "match_eval"
     SLIDES_READY = "slides_ready"
     SLIDE_SET = "slide_set"
     RESET_DONE = "reset_done"
@@ -220,11 +221,16 @@ def _process_words(words, matcher, text_window, command_state) -> None:
             return
 
     weighted_text = _weighted_text(window_text, text_window, recent_count, recent_multiplier)
-    transition = matcher.check(weighted_text)
-    if transition:
-        log(f"SENDING TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
-        send_type(IpcType.SLIDE_TRANSITION, **transition)
-        text_window.clear()
+    result = matcher.check(weighted_text)
+    if result:
+        eval_payload = result.get("eval")
+        if eval_payload:
+            send_type(IpcType.MATCH_EVAL, **eval_payload)
+        transition = result.get("transition")
+        if transition:
+            log(f"SENDING TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
+            send_type(IpcType.SLIDE_TRANSITION, **transition)
+            text_window.clear()
 
 
 def _maybe_partial_match(
@@ -257,14 +263,19 @@ def _maybe_partial_match(
         return
 
     weighted_text = _weighted_text(window_text, combined_words, recent_count, recent_multiplier)
-    transition = matcher.check(weighted_text, ignore_cooldown=PARTIAL_MATCH_IGNORE_COOLDOWN)
+    result = matcher.check(weighted_text, ignore_cooldown=PARTIAL_MATCH_IGNORE_COOLDOWN)
     speech_state.last_partial_match_ts = now
-    if transition:
-        log(f"PARTIAL TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
-        send_type(IpcType.SLIDE_TRANSITION, **transition)
-        text_window.clear()
-        speech_state.last_partial_text = ""
-        speech_state.last_partial_ts = 0.0
+    if result:
+        eval_payload = result.get("eval")
+        if eval_payload:
+            send_type(IpcType.MATCH_EVAL, **eval_payload)
+        transition = result.get("transition")
+        if transition:
+            log(f"PARTIAL TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
+            send_type(IpcType.SLIDE_TRANSITION, **transition)
+            text_window.clear()
+            speech_state.last_partial_text = ""
+            speech_state.last_partial_ts = 0.0
 
 
 def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandState, speech_state: SpeechState):

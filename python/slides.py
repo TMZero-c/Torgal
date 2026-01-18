@@ -209,9 +209,10 @@ class SlideMatcher:
         if not text:
             log("check() called with empty text, skipping")
             return None
+        cooldown_blocked = False
         if not ignore_cooldown and self.words_since < self.cooldown:
+            cooldown_blocked = True
             log(f"Cooldown: {self.words_since}/{self.cooldown} words")
-            return None
 
         log(f"Checking: '{text}...'")
 
@@ -280,6 +281,7 @@ class SlideMatcher:
                     sims_used[idx] = max_sent
 
         best = int(np.argmax(sims_used)) # type: ignore
+        sorted_indices = np.argsort(sims_used)[::-1]
 
         # Consider only current/adjacent slides by default
         if self.qa_mode:
@@ -326,21 +328,118 @@ class SlideMatcher:
         diff = sims_used[target] - sims_used[self.current]
         # stay_bias prevents churn when similarities are close
         required_diff = self.diff if self.qa_mode else max(self.diff, self.stay_bias)
-        if target != self.current and sims_used[target] >= self.threshold and diff >= required_diff:
+
+        intent = "stay"
+        if target > self.current:
+            intent = "forward"
+        elif target < self.current:
+            intent = "backward"
+
+        non_adjacent = target not in {prev_slide, self.current, next_slide}
+        if non_adjacent:
+            intent = "jump"
+
+        would_transition = (
+            target != self.current
+            and sims_used[target] >= self.threshold
+            and diff >= required_diff
+            and not cooldown_blocked
+        )
+
+        def _format_option_label(idx: int) -> str:
+            slide_num = idx + 1
+            title = "" if self.slides[idx].title is None else str(self.slides[idx].title).strip()
+            if title:
+                short = title if len(title) <= 28 else title[:25].rstrip() + "..."
+                return f"Slide {slide_num}: {short}"
+            return f"Slide {slide_num}"
+
+        options = []
+        if self.qa_mode:
+            best_idx = best
+            runner_idx = best_idx
+            for idx in sorted_indices:
+                if int(idx) != best_idx:
+                    runner_idx = int(idx)
+                    break
+            options = [
+                {
+                    "label": _format_option_label(int(best_idx)),
+                    "slide": int(best_idx),
+                    "sim": float(sims_used[best_idx]),
+                },
+                {
+                    "label": _format_option_label(int(runner_idx)),
+                    "slide": int(runner_idx),
+                    "sim": float(sims_used[runner_idx]),
+                },
+                {
+                    "label": _format_option_label(int(self.current)),
+                    "slide": int(self.current),
+                    "sim": float(sims_used[self.current]),
+                },
+            ]
+        else:
+            options = [
+                {
+                    "label": "Prev",
+                    "slide": int(prev_slide),
+                    "sim": float(sims_used[prev_slide]),
+                },
+                {
+                    "label": "Current",
+                    "slide": int(self.current),
+                    "sim": float(sims_used[self.current]),
+                },
+                {
+                    "label": "Next",
+                    "slide": int(next_slide),
+                    "sim": float(sims_used[next_slide]),
+                },
+            ]
+
+        eval_payload = {
+            "current_slide": int(self.current),
+            "prev_slide": int(prev_slide),
+            "next_slide": int(next_slide),
+            "target_slide": int(target),
+            "best_slide": int(best),
+            "prev_sim": float(sims_used[prev_slide]),
+            "current_sim": float(sims_used[self.current]),
+            "next_sim": float(sims_used[next_slide]),
+            "target_sim": float(sims_used[target]),
+            "best_sim": float(sims_used[best]),
+            "threshold": float(self.threshold),
+            "required_diff": float(required_diff),
+            "diff": float(diff),
+            "intent": intent,
+            "would_transition": bool(would_transition),
+            "qa_mode": bool(self.qa_mode),
+            "allow_non_adjacent": bool(self.allow_non_adjacent),
+            "non_adjacent": bool(non_adjacent),
+            "cooldown_blocked": bool(cooldown_blocked),
+            "cooldown_words": int(self.cooldown),
+            "words_since": int(self.words_since),
+            "options": options,
+        }
+
+        if would_transition:
             old = self.current
             self.current = target
             self.words_since = 0
             log(f"  → TRANSITION! {old} → {target} (diff={diff:.3f})")
-            return {
+            transition_payload = {
                 "type": "slide_transition",
                 "from_slide": old,
                 "to_slide": target,
                 "confidence": float(sims_used[target]),
                 "slide_title": self.slides[target].title,
+                "intent": intent,
             }
+            return {"eval": eval_payload, "transition": transition_payload}
 
         log(f"  → No transition (need diff>={required_diff:.3f}, got {diff:.3f})")
-        return None
+        return {"eval": eval_payload}
 
     def add_words(self, n: int) -> None:
         self.words_since += n
