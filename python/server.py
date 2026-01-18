@@ -1,12 +1,8 @@
 """
-Optimal streaming transcription using LocalAgreement policy.
-Key insight: Only emit words that are "stable" across multiple transcription passes.
-Uses a sliding window of audio and word-level timestamps.
+Streaming transcription server with slide matching.
+Uses LocalAgreement policy for stable word detection.
 """
-import sys
-import os
-import json
-import base64
+import sys, os, json, base64
 import numpy as np
 
 # Add CUDA DLLs to PATH
@@ -18,6 +14,7 @@ for subdir in ["cublas", "cudnn"]:
         os.environ["PATH"] = p + os.pathsep + os.environ.get("PATH", "")
 
 from faster_whisper import WhisperModel
+from slides import SlideMatcher
 
 SAMPLE_RATE = 16000
 
@@ -28,133 +25,115 @@ def send(msg):
     print(json.dumps(msg), flush=True)
 
 
-class StreamingTranscriber:
+class Transcriber:
+    """Streaming transcription with LocalAgreement for stability."""
+    
     def __init__(self, model):
         self.model = model
-        self.audio_buffer = np.array([], dtype=np.float32)
-        self.confirmed_text = []  # Words we've committed
-        self.last_words = []  # Words from previous transcription
-        self.min_chunk_sec = 1.0  # Process every 1 second
-        self.buffer_max_sec = 15.0  # Keep max 15 seconds of audio context
-        
-    def add_audio(self, pcm_int16):
-        """Add audio samples (int16) to buffer"""
-        samples = np.frombuffer(pcm_int16, dtype=np.int16).astype(np.float32) / 32768.0
-        self.audio_buffer = np.concatenate([self.audio_buffer, samples])
-        
-        # Trim buffer if too long
-        max_samples = int(self.buffer_max_sec * SAMPLE_RATE)
-        if len(self.audio_buffer) > max_samples:
-            self.audio_buffer = self.audio_buffer[-max_samples:]
+        self.buffer = np.array([], dtype=np.float32)
+        self.last_words = []
     
-    def should_process(self):
-        """Check if we have enough audio to process"""
-        return len(self.audio_buffer) >= int(self.min_chunk_sec * SAMPLE_RATE)
+    def add_audio(self, pcm_bytes):
+        samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        self.buffer = np.concatenate([self.buffer, samples])
+        # Keep max 15 seconds
+        max_samples = 15 * SAMPLE_RATE
+        if len(self.buffer) > max_samples:
+            self.buffer = self.buffer[-max_samples:]
     
     def process(self):
-        """Transcribe and return (confirmed_words, partial_words)"""
-        if len(self.audio_buffer) < SAMPLE_RATE * 0.5:  # Need at least 0.5s
+        """Returns (confirmed_words, partial_words)"""
+        if len(self.buffer) < SAMPLE_RATE:  # Need 1 second
             return [], []
         
-        # Transcribe with word timestamps
         segments, _ = self.model.transcribe(
-            self.audio_buffer,
-            beam_size=1,
-            language="en",
-            word_timestamps=True,
-            vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=300),
-            condition_on_previous_text=False,
-            no_speech_threshold=0.5,
+            self.buffer, beam_size=1, language="en",
+            word_timestamps=True, vad_filter=True,
+            condition_on_previous_text=False
         )
         
-        # Extract words with timestamps
-        current_words = []
+        words = []
         for seg in segments:
             if seg.words:
-                for w in seg.words:
-                    current_words.append({
-                        "word": w.word.strip(),
-                        "start": w.start,
-                        "end": w.end,
-                        "prob": w.probability
-                    })
+                words.extend({"word": w.word.strip(), "end": w.end} for w in seg.words)
         
-        # LocalAgreement: find words that match between this and last transcription
-        confirmed_new = []
-        
-        if self.last_words and current_words:
-            # Find matching prefix between last and current transcription
-            match_count = 0
-            for i, (last_w, curr_w) in enumerate(zip(self.last_words, current_words)):
-                if last_w["word"].lower() == curr_w["word"].lower():
-                    match_count += 1
+        # LocalAgreement: confirm words that match previous transcription
+        confirmed = []
+        if self.last_words and words:
+            for i, (last, curr) in enumerate(zip(self.last_words, words)):
+                if last["word"].lower() == curr["word"].lower():
+                    confirmed.append(curr["word"])
                 else:
                     break
             
-            # Confirm matched words (they appeared in 2 consecutive transcriptions)
-            if match_count > 0:
-                confirmed_new = [w["word"] for w in current_words[:match_count]]
-                
-                # Trim audio buffer to remove confirmed audio
-                if match_count > 0 and current_words[match_count - 1]["end"]:
-                    trim_time = current_words[match_count - 1]["end"]
-                    trim_samples = int(trim_time * SAMPLE_RATE)
-                    if trim_samples > 0 and trim_samples < len(self.audio_buffer):
-                        self.audio_buffer = self.audio_buffer[trim_samples:]
+            # Trim confirmed audio from buffer
+            if confirmed and words[len(confirmed)-1]["end"]:
+                trim = int(words[len(confirmed)-1]["end"] * SAMPLE_RATE)
+                if 0 < trim < len(self.buffer):
+                    self.buffer = self.buffer[trim:]
         
-        # Save current words for next comparison
-        self.last_words = current_words
-        
-        # Return confirmed and partial (unconfirmed) words
-        partial = [w["word"] for w in current_words[len(confirmed_new):]]
-        
-        return confirmed_new, partial
+        self.last_words = words
+        partial = [w["word"] for w in words[len(confirmed):]]
+        return confirmed, partial
     
     def reset(self):
-        self.audio_buffer = np.array([], dtype=np.float32)
-        self.confirmed_text = []
+        self.buffer = np.array([], dtype=np.float32)
         self.last_words = []
 
 
 def main():
-    log("Loading Whisper model (small.en + GPU)...")
+    log("Loading Whisper model...")
     model = WhisperModel("small.en", device="cuda", compute_type="float16")
     log("Model loaded!")
     
-    transcriber = StreamingTranscriber(model)
-    send({"type": "ready"})
+    log("Loading slides...")
+    matcher = SlideMatcher()
+    log(f"Loaded {len(matcher.slides)} slides")
+    
+    transcriber = Transcriber(model)
+    text_window = []  # Rolling window of recent words
+    
+    # Send ready with slide info
+    slides_info = [{"index": s.index, "title": s.title} for s in matcher.slides]
+    send({"type": "ready", "slides": slides_info, "current_slide": 0})
     
     for line in sys.stdin:
         try:
             msg = json.loads(line.strip())
             
             if msg["type"] == "audio":
-                audio_bytes = base64.b64decode(msg["data"])
-                transcriber.add_audio(audio_bytes)
+                transcriber.add_audio(base64.b64decode(msg["data"]))
+                confirmed, partial = transcriber.process()
                 
-                if transcriber.should_process():
-                    confirmed, partial = transcriber.process()
+                if confirmed:
+                    send({"type": "final", "text": " ".join(confirmed)})
                     
-                    if confirmed:
-                        text = " ".join(confirmed)
-                        send({"type": "final", "text": text})
+                    # Update window and check for slide transition
+                    text_window.extend(confirmed)
+                    text_window = text_window[-25:]  # Keep last 25 words
+                    matcher.add_words(len(confirmed))
                     
-                    if partial:
-                        text = " ".join(partial)
-                        send({"type": "partial", "text": text})
+                    transition = matcher.check(" ".join(text_window))
+                    if transition:
+                        send(transition)
+                        text_window.clear()
+                
+                if partial:
+                    send({"type": "partial", "text": " ".join(partial)})
+            
+            elif msg["type"] == "goto_slide":
+                matcher.goto(msg.get("index", 0))
+                text_window.clear()
+                send({"type": "slide_set", "current_slide": matcher.current})
             
             elif msg["type"] == "reset":
                 transcriber.reset()
-                send({"type": "reset_done"})
-            
-            elif msg["type"] == "ping":
-                send({"type": "pong"})
+                matcher.reset()
+                text_window.clear()
+                send({"type": "reset_done", "current_slide": 0})
                 
         except Exception as e:
             log(f"Error: {e}")
-            import traceback
-            traceback.print_exc(file=sys.stderr)
 
 if __name__ == "__main__":
     main()
