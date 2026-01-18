@@ -86,16 +86,11 @@ def main():
     model = WhisperModel("small.en", device="cuda", compute_type="float16")
     log("Model loaded!")
     
-    log("Loading slides...")
-    matcher = SlideMatcher()
-    log(f"Loaded {len(matcher.slides)} slides")
-    
+    matcher = None  # Will be created when slides are loaded
     transcriber = Transcriber(model)
-    text_window = []  # Rolling window of recent words
+    text_window = []
     
-    # Send ready with slide info
-    slides_info = [{"index": s.index, "title": s.title} for s in matcher.slides]
-    send({"type": "ready", "slides": slides_info, "current_slide": 0})
+    send({"type": "ready"})
     
     for line in sys.stdin:
         try:
@@ -108,27 +103,41 @@ def main():
                 if confirmed:
                     send({"type": "final", "text": " ".join(confirmed)})
                     
-                    # Update window and check for slide transition
-                    text_window.extend(confirmed)
-                    text_window = text_window[-25:]  # Keep last 25 words
-                    matcher.add_words(len(confirmed))
-                    
-                    transition = matcher.check(" ".join(text_window))
-                    if transition:
-                        send(transition)
-                        text_window.clear()
+                    # Check slide transition if slides are loaded
+                    if matcher:
+                        text_window.extend(confirmed)
+                        text_window = text_window[-25:]
+                        matcher.add_words(len(confirmed))
+                        
+                        transition = matcher.check(" ".join(text_window))
+                        if transition:
+                            send(transition)
+                            text_window.clear()
                 
                 if partial:
                     send({"type": "partial", "text": " ".join(partial)})
             
-            elif msg["type"] == "goto_slide":
-                matcher.goto(msg.get("index", 0))
+            elif msg["type"] == "load_slides":
+                # Load slides from parsed PDF/PPTX
+                from slides import Slide, SlideMatcher
+                slides_data = msg.get("slides", [])
+                slides = [Slide(i, s.get("title", f"Slide {i+1}"), s.get("content", "")) 
+                          for i, s in enumerate(slides_data)]
+                matcher = SlideMatcher(slides=slides)
                 text_window.clear()
-                send({"type": "slide_set", "current_slide": matcher.current})
+                log(f"Loaded {len(slides)} slides from file")
+                send({"type": "slides_ready", "count": len(slides)})
+            
+            elif msg["type"] == "goto_slide":
+                if matcher:
+                    matcher.goto(msg.get("index", 0))
+                    text_window.clear()
+                    send({"type": "slide_set", "current_slide": matcher.current})
             
             elif msg["type"] == "reset":
                 transcriber.reset()
-                matcher.reset()
+                if matcher:
+                    matcher.reset()
                 text_window.clear()
                 send({"type": "reset_done", "current_slide": 0})
                 

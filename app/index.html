@@ -1,178 +1,109 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Slide Co-Pilot</title>
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: system-ui, sans-serif;
-            padding: 24px;
-            max-width: 700px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            font-size: 24px;
-            margin-bottom: 4px;
-        }
-
-        .subtitle {
-            color: #666;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        #slide {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 40px;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 16px;
-        }
-
-        #slide-num {
-            font-size: 13px;
-            opacity: 0.8;
-        }
-
-        #slide-title {
-            font-size: 24px;
-            font-weight: 600;
-            margin-top: 8px;
-        }
-
-        #nav {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-
-        .nav-btn {
-            padding: 6px 10px;
-            border: 2px solid #ddd;
-            background: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-
-        .nav-btn.active {
-            border-color: #667eea;
-            background: #667eea;
-            color: white;
-        }
-
-        #controls {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        #btn {
-            padding: 10px 20px;
-            font-size: 15px;
-            cursor: pointer;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-        }
-
-        #btn.on {
-            background: #e53935;
-        }
-
-        #status {
-            color: #666;
-            font-size: 13px;
-        }
-
-        #transcript {
-            background: #f5f5f5;
-            padding: 12px;
-            border-radius: 4px;
-            min-height: 60px;
-            max-height: 120px;
-            overflow-y: auto;
-            font-size: 14px;
-        }
-
-        #partial {
-            color: #888;
-            font-style: italic;
-            margin-top: 4px;
-            font-size: 13px;
-        }
-
-        #info {
-            margin-top: 16px;
-            padding: 10px;
-            background: #e3f2fd;
-            border-radius: 4px;
-            border-left: 3px solid #2196F3;
-            font-size: 13px;
-        }
-
-        #info.triggered {
-            background: #c8e6c9;
-            border-color: #4CAF50;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
+        h1 { font-size: 22px; margin-bottom: 4px; }
+        .subtitle { color: #666; margin-bottom: 16px; font-size: 13px; }
+        
+        /* Upload section */
+        #upload { margin-bottom: 16px; display: flex; gap: 12px; align-items: center; }
+        #upload-btn { padding: 8px 16px; cursor: pointer; }
+        #file-status { color: #666; font-size: 13px; }
+        
+        /* Slide viewer */
+        #slide-viewer { display: none; margin-bottom: 16px; background: #000; border-radius: 8px; overflow: hidden; }
+        #slide-image { width: 100%; display: block; }
+        #slide-nav-bar { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px; background: #222; color: white; }
+        #slide-nav-bar button { padding: 6px 12px; cursor: pointer; }
+        #slide-counter { font-size: 13px; }
+        
+        /* Controls */
+        #controls { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        #btn { padding: 10px 20px; font-size: 15px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 4px; }
+        #btn.on { background: #e53935; }
+        #status { color: #666; font-size: 13px; }
+        
+        /* Transcript */
+        #transcript { background: #f5f5f5; padding: 12px; border-radius: 4px; min-height: 60px; max-height: 100px; overflow-y: auto; font-size: 14px; }
+        #partial { color: #888; font-style: italic; margin-top: 4px; font-size: 13px; }
+        
+        /* Info bar */
+        #info { margin-top: 12px; padding: 10px; background: #e3f2fd; border-radius: 4px; border-left: 3px solid #2196F3; font-size: 13px; }
+        #info.triggered { background: #c8e6c9; border-color: #4CAF50; }
     </style>
 </head>
-
 <body>
     <h1>🎯 Slide Co-Pilot</h1>
-    <p class="subtitle">Auto-transitions slides based on what you're saying</p>
-
-    <div id="slide">
-        <div id="slide-num">Slide 1 of ?</div>
-        <div id="slide-title">Loading...</div>
+    <p class="subtitle">Upload a presentation, then speak - slides auto-transition based on your content</p>
+    
+    <div id="upload">
+        <button id="upload-btn">📁 Upload Presentation (PDF/PPTX)</button>
+        <span id="file-status">No file loaded</span>
     </div>
-
-    <div id="nav"></div>
-
+    
+    <div id="slide-viewer">
+        <img id="slide-image" src="">
+        <div id="slide-nav-bar">
+            <button id="prev-btn">← Prev</button>
+            <span id="slide-counter">Slide 1 of 1</span>
+            <button id="next-btn">Next →</button>
+        </div>
+    </div>
+    
     <div id="controls">
-        <button id="btn">Start</button>
-        <span id="status">Initializing...</span>
+        <button id="btn">Start Listening</button>
+        <span id="status">Load a presentation first</span>
     </div>
-
+    
     <div id="transcript"></div>
     <div id="partial"></div>
-    <div id="info">Waiting for speech...</div>
+    <div id="info">Waiting...</div>
 
     <script>
         const $ = id => document.getElementById(id);
         let slides = [], current = 0, listening = false;
         let audioCtx, processor, source, stream;
 
-        function updateSlide(i) {
+        // Update slide display
+        function showSlide(i) {
+            if (!slides.length) return;
             current = i;
-            $('slide-num').textContent = `Slide ${i + 1} of ${slides.length}`;
-            $('slide-title').textContent = slides[i]?.title || '';
-            document.querySelectorAll('.nav-btn').forEach((b, j) => b.classList.toggle('active', j === i));
+            $('slide-image').src = slides[i].image;
+            $('slide-counter').textContent = `Slide ${i + 1} of ${slides.length}`;
         }
 
+        // File upload
+        $('upload-btn').onclick = async () => {
+            const path = await window.api.openFileDialog();
+            if (path) $('file-status').textContent = 'Loading...';
+        };
+
+        window.api.onSlidesLoaded(data => {
+            if (data.status === 'success') {
+                slides = data.slides;
+                current = 0;
+                showSlide(0);
+                $('slide-viewer').style.display = 'block';
+                $('file-status').textContent = `Loaded ${data.total_pages} slides`;
+                $('status').textContent = 'Ready - click Start';
+            } else {
+                $('file-status').textContent = `Error: ${data.message}`;
+            }
+        });
+
+        $('prev-btn').onclick = () => current > 0 && showSlide(current - 1);
+        $('next-btn').onclick = () => current < slides.length - 1 && showSlide(current + 1);
+
+        // Transcript handling
         window.api.onTranscript(msg => {
             if (msg.type === 'ready') {
                 $('status').textContent = 'Ready';
-                slides = msg.slides || [];
-                $('nav').innerHTML = slides.map((s, i) =>
-                    `<button class="nav-btn${i === 0 ? ' active' : ''}" data-i="${i}">${i + 1}</button>`
-                ).join('');
-                $('nav').onclick = e => e.target.dataset.i && window.api.gotoSlide(+e.target.dataset.i);
-                updateSlide(0);
             }
             else if (msg.type === 'final') {
                 $('transcript').textContent += msg.text + ' ';
@@ -182,19 +113,19 @@
                 $('partial').textContent = msg.text;
             }
             else if (msg.type === 'slide_transition') {
-                updateSlide(msg.to_slide);
+                showSlide(msg.to_slide);
                 $('info').className = 'triggered';
                 $('info').textContent = `→ Slide ${msg.to_slide + 1}: ${msg.slide_title} (${(msg.confidence * 100).toFixed(0)}%)`;
                 setTimeout(() => $('info').className = '', 1000);
             }
-            else if (msg.type === 'slide_set') updateSlide(msg.current_slide);
             else if (msg.type === 'reset_done') {
-                updateSlide(0);
+                showSlide(0);
                 $('transcript').textContent = '';
                 $('info').textContent = 'Reset';
             }
         });
 
+        // Audio capture
         async function start() {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             audioCtx = new AudioContext({ sampleRate: 16000 });
@@ -218,7 +149,7 @@
             processor?.disconnect(); source?.disconnect(); audioCtx?.close();
             stream?.getTracks().forEach(t => t.stop());
             listening = false;
-            $('btn').textContent = 'Start';
+            $('btn').textContent = 'Start Listening';
             $('btn').className = '';
             $('status').textContent = 'Stopped';
             window.api.reset();
@@ -227,5 +158,4 @@
         $('btn').onclick = () => listening ? stop() : start();
     </script>
 </body>
-
 </html>
