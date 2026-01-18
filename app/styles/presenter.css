@@ -159,7 +159,7 @@ body { font-family: 'Inter', sans-serif; background: #1a1a1a; color: #fff; heigh
 .keywords-impact-tag:hover { background: #E5A750; box-shadow: 0 0 8px rgba(212, 149, 60, 0.4); }
 
 .stats-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; align-items: stretch; }
-.stat-card { background: #333; border-radius: 0px; padding: 15px; margin-bottom: 15px; height: 120px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+.stat-card { background: #333; border-radius: 0px; padding: 15px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
 .stat-card h4 { font-size: 12px; text-transform: uppercase; color: #999; margin-bottom: 8px; }
 .stat-value { font-size: 28px; font-weight: 600; color: #D4953C; }
 .stat-detail { font-size: 12px; color: #aaa; margin-top: 5px; }
