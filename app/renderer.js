@@ -229,6 +229,7 @@ function generateThumbnails() {
 function bindUi() {
     const uploadBtn = $('upload-btn');
     const resetBtn = $('reset-btn');
+    const qaModeToggle = $('qa-mode-toggle');
 
     if (!uploadBtn) {
         console.error('[ERROR] upload-btn not found in DOM');
@@ -249,6 +250,18 @@ function bindUi() {
         resetBtn.onclick = () => {
             stop();
             resetStats();
+        };
+    }
+
+    // Q&A Mode Toggle
+    if (qaModeToggle) {
+        qaModeToggle.onchange = () => {
+            const isQaMode = qaModeToggle.checked;
+            const modeText = $('mode-text');
+            if (modeText) modeText.textContent = isQaMode ? 'Q&A' : 'Regular';
+            
+            log('MODE', `Switched to ${isQaMode ? 'Q&A' : 'Regular'} mode`);
+            window.api.setQaMode(isQaMode);
         };
     }
 
