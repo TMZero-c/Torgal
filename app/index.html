@@ -37,20 +37,49 @@
         <div class="right-panel">
 
             <div class="intent-card">
-                <h4>Intent Spectrum</h4>
+                <h4>Decision Snapshot</h4>
                 <div class="intent-label" id="intent-label">Listening...</div>
-                <div class="spectrum-container">
-                    <div class="spectrum-bar">
-                        <div class="spectrum-neutral-line"></div>
-                        <div class="spectrum-fill" id="spectrum-fill"></div>
+                <div class="decision-summary">
+                    <div class="decision-row">
+                        <span class="decision-label">Decision</span>
+                        <span class="decision-value" id="decision-intent">—</span>
+                        <span class="decision-pill" id="decision-status">—</span>
                     </div>
-                    <div class="spectrum-labels">
-                        <span>Backward</span>
-                        <span>Neutral</span>
-                        <span>Forward</span>
+                    <div class="decision-row">
+                        <span class="decision-label">Confidence</span>
+                        <span class="decision-value" id="decision-confidence">—</span>
+                        <span class="decision-label">Threshold</span>
+                        <span class="decision-value" id="decision-threshold">—</span>
+                        <span class="decision-label">Diff</span>
+                        <span class="decision-value" id="decision-diff">—</span>
                     </div>
                 </div>
-                <div id="spectrum-text" class="stat-detail">Intent: 0</div>
+                <div class="option-compare">
+                    <div class="option-row" id="option-prev-row">
+                        <div class="option-name" id="option-prev-label">Prev</div>
+                        <div class="option-bar">
+                            <div class="option-threshold" id="option-prev-threshold"></div>
+                            <div class="option-fill" id="option-prev-fill"></div>
+                        </div>
+                        <div class="option-value" id="option-prev-value">0%</div>
+                    </div>
+                    <div class="option-row" id="option-current-row">
+                        <div class="option-name" id="option-current-label">Current</div>
+                        <div class="option-bar">
+                            <div class="option-threshold" id="option-current-threshold"></div>
+                            <div class="option-fill" id="option-current-fill"></div>
+                        </div>
+                        <div class="option-value" id="option-current-value">0%</div>
+                    </div>
+                    <div class="option-row" id="option-next-row">
+                        <div class="option-name" id="option-next-label">Next</div>
+                        <div class="option-bar">
+                            <div class="option-threshold" id="option-next-threshold"></div>
+                            <div class="option-fill" id="option-next-fill"></div>
+                        </div>
+                        <div class="option-value" id="option-next-value">0%</div>
+                    </div>
+                </div>
             </div>
 
             <div class="stats-container">
