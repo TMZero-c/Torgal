@@ -132,6 +132,11 @@ function bindUi() {
             if ($('thumbnails-grid')) generateThumbnails();
             const totalSlides = $('total-slides');
             if (totalSlides) totalSlides.textContent = slides.length;
+            
+            // Hide placeholder
+            const placeholder = $('placeholder');
+            if (placeholder) placeholder.classList.add('hidden');
+            
             if ($('upload-btn')) start(); // Auto-start listening when slides load
         }
     });
