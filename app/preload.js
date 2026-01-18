@@ -6,9 +6,12 @@ contextBridge.exposeInMainWorld('api', {
     sendAudioChunk: (payload) => ipcRenderer.send('audio-chunk', payload),
     reset: () => ipcRenderer.send('reset'),
     gotoSlide: (index) => ipcRenderer.send('goto-slide', index),
-    onTranscript: (cb) => ipcRenderer.on('transcript', (_, msg) => cb(msg)),
+    setQaMode: (isQaMode) => ipcRenderer.send('set-qa-mode', { qa_mode: isQaMode }),
 
-    // File upload / slide parsing
+    // File dialog
     openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
-    onSlidesLoaded: (cb) => ipcRenderer.on('slides-loaded', (_, data) => cb(data))
+
+    // Event subscriptions
+    onSlidesLoaded: (callback) => ipcRenderer.on('slides-loaded', (_event, data) => callback(data)),
+    onTranscript: (callback) => ipcRenderer.on('transcript', (_event, msg) => callback(msg))
 });
