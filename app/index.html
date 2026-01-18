@@ -18,23 +18,18 @@
 
             <div class="controls">
                 <button id="upload-btn">Upload Presentation</button>
-                <button id="reset-btn">Reset</button>
+               <!-- <button id="reset-btn">Reset</button> -->
             </div>
 
             <div class="slide-counter"><span id="slide-number">0 / 0</span></div>
-            <div class="slide-nav">
-                <button id="prev-btn">← Prev</button>
-                <button id="next-btn">Next →</button>
-            </div>
-
-            <div class="transcript-panel">
-                <h3>Transcript</h3>
-                <div id="transcript-partial" class="transcript-text partial">Listening...</div>
-                <div id="transcript-final" class="transcript-text"></div>
+            
+            <div class="thumbnails-grid" id="thumbnails-grid">
+                <!-- Thumbnails will be inserted here -->
             </div>
         </div>
 
         <div class="right-panel">
+
             <div class="intent-card">
                 <h4>Intent & Confidence</h4>
                 <div class="intent-label" id="intent-label">Listening...</div>
@@ -50,27 +45,40 @@
                     <div class="stat-value" id="total-conf">0%</div>
                     <div class="stat-detail">Average confidence</div>
                 </div>
+
+                <!--
                 <div class="stat-card">
                     <h4>Slides Matched</h4>
                     <div class="stat-value" id="slides-matched">0</div>
                     <div class="stat-detail">Total transitions</div>
                 </div>
+            -->
+                <!--
                 <div class="stat-card">
                     <h4>Current Slide</h4>
                     <div class="stat-value" id="current-slide-num">1</div>
                     <div class="stat-detail">of <span id="total-slides">0</span></div>
                 </div>
+            -->
                 <div class="stat-card">
                     <h4>Intent Type</h4>
                     <div class="intent-label" id="intent-type">—</div>
                 </div>
             </div>
 
+            <!--
             <div class="intent-card">
                 <h4>Detected Keywords</h4>
                 <div id="keywords-container" class="keyword-highlights">
                     <span class="stat-detail">None detected</span>
                 </div>
+            </div>
+        -->
+
+            <div class="transcript-panel">
+                <h3>Transcript</h3>
+                <div id="transcript-partial" class="transcript-text partial">Listening...</div>
+                <div id="transcript-final" class="transcript-text"></div>
             </div>
         </div>
     </div>

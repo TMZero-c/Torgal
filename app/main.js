@@ -58,6 +58,11 @@ ipcMain.on('goto-slide', (_, index) => sendToPython({ type: 'goto_slide', index 
 
 ipcMain.handle('dialog:openFile', async () => {
   log('UPLOAD', 'Opening file dialog...');
+  if (!presenterWin) {
+    log('UPLOAD', 'ERROR: presenterWin is not defined');
+    return null;
+  }
+  
   const { canceled, filePaths } = await dialog.showOpenDialog(presenterWin, {
     properties: ['openFile'],
     filters: [{ name: 'Presentations', extensions: ['pdf', 'pptx'] }]
@@ -69,6 +74,7 @@ ipcMain.handle('dialog:openFile', async () => {
     return filePaths[0];
   }
   log('UPLOAD', 'Dialog canceled');
+  return null;
 });
 
 function runSlideParser(filePath) {
