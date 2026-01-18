@@ -25,6 +25,12 @@ from config import (
     WINDOW_WORDS,
     RECENT_WORDS_COUNT,
     RECENT_WORDS_MULTIPLIER,
+    AUDIO_BUFFER_SECONDS,
+    QA_MODE,
+    QA_WINDOW_WORDS,
+    QA_RECENT_WORDS_COUNT,
+    QA_RECENT_WORDS_MULTIPLIER,
+    QA_AUDIO_BUFFER_SECONDS,
     TRIGGER_COOLDOWN_MS,
     TRIGGER_TAIL_WORDS,
     TRIGGER_MIN_WORDS_BETWEEN,
@@ -80,14 +86,41 @@ def send_type(msg_type: IpcType, **payload):
     send(payload)
 
 
-def _weighted_text(window_text: str, words: list[str]) -> str:
+def _weighted_text(
+    window_text: str,
+    words: list[str],
+    recent_words_count: int = RECENT_WORDS_COUNT,
+    recent_words_multiplier: int = RECENT_WORDS_MULTIPLIER,
+) -> str:
     """Emphasize recent words by repeating the tail (lightweight recency bias)."""
-    if RECENT_WORDS_MULTIPLIER <= 1 or RECENT_WORDS_COUNT <= 0 or not words:
+    if recent_words_multiplier <= 1 or recent_words_count <= 0 or not words:
         return window_text
-    tail = " ".join(words[-RECENT_WORDS_COUNT:]).strip()
+    tail = " ".join(words[-recent_words_count:]).strip()
     if not tail:
         return window_text
-    return " ".join([window_text] + [tail] * (RECENT_WORDS_MULTIPLIER - 1)).strip()
+    return " ".join([window_text] + [tail] * (recent_words_multiplier - 1)).strip()
+
+
+def _effective_window_words() -> int:
+    if QA_MODE and QA_WINDOW_WORDS is not None:
+        return QA_WINDOW_WORDS
+    return WINDOW_WORDS
+
+
+def _effective_recency() -> tuple[int, int]:
+    if QA_MODE:
+        recent_count = QA_RECENT_WORDS_COUNT if QA_RECENT_WORDS_COUNT is not None else RECENT_WORDS_COUNT
+        recent_multiplier = (
+            QA_RECENT_WORDS_MULTIPLIER if QA_RECENT_WORDS_MULTIPLIER is not None else RECENT_WORDS_MULTIPLIER
+        )
+        return recent_count, recent_multiplier
+    return RECENT_WORDS_COUNT, RECENT_WORDS_MULTIPLIER
+
+
+def _effective_audio_buffer_seconds() -> int:
+    if QA_MODE and QA_AUDIO_BUFFER_SECONDS is not None:
+        return QA_AUDIO_BUFFER_SECONDS
+    return AUDIO_BUFFER_SECONDS
 
 
 def build_whisper_model():
@@ -165,9 +198,10 @@ def _process_words(words, matcher, text_window, command_state) -> None:
     """Update window, check explicit commands, then run semantic matching."""
     if not matcher or not words:
         return
-
+    window_words = _effective_window_words()
+    recent_count, recent_multiplier = _effective_recency()
     text_window.extend(words)
-    text_window[:] = text_window[-WINDOW_WORDS:]
+    text_window[:] = text_window[-window_words:]
     matcher.add_words(len(words))
 
     window_text = " ".join(text_window).strip()
@@ -185,7 +219,7 @@ def _process_words(words, matcher, text_window, command_state) -> None:
         ):
             return
 
-    weighted_text = _weighted_text(window_text, text_window)
+    weighted_text = _weighted_text(window_text, text_window, recent_count, recent_multiplier)
     transition = matcher.check(weighted_text)
     if transition:
         log(f"SENDING TRANSITION: {transition['from_slide']} → {transition['to_slide']}")
@@ -215,12 +249,14 @@ def _maybe_partial_match(
     if (now - speech_state.last_partial_match_ts) < cooldown_s:
         return
 
-    combined_words = (text_window + words)[-WINDOW_WORDS:]
+    window_words = _effective_window_words()
+    recent_count, recent_multiplier = _effective_recency()
+    combined_words = (text_window + words)[-window_words:]
     window_text = " ".join(combined_words).strip()
     if not window_text:
         return
 
-    weighted_text = _weighted_text(window_text, combined_words)
+    weighted_text = _weighted_text(window_text, combined_words, recent_count, recent_multiplier)
     transition = matcher.check(weighted_text, ignore_cooldown=PARTIAL_MATCH_IGNORE_COOLDOWN)
     speech_state.last_partial_match_ts = now
     if transition:
@@ -328,7 +364,7 @@ def main():
     log("Whisper model loaded!")
 
     matcher = None
-    transcriber = Transcriber(model)
+    transcriber = Transcriber(model, buffer_seconds=_effective_audio_buffer_seconds())
     text_window = []
     command_state = CommandState()
     speech_state = SpeechState()

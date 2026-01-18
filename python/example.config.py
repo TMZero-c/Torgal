@@ -21,6 +21,17 @@ MATCH_DIFF = 0.09            # Required similarity gap vs current slide
 WINDOW_WORDS = 14            # More words = better context, can add lag
 STAY_BIAS_MARGIN = 0.02      # Extra diff needed to leave current slide
 
+# Q&A mode (free-form navigation, less adjacency bias)
+QA_MODE = False              # True = global matching, easier non-adjacent jumps
+
+# Q&A mode tuning (only used when QA_MODE=True)
+QA_WINDOW_WORDS = 24         # Larger window = more context for questions
+QA_RECENT_WORDS_COUNT = 6    # Lower = less recency bias for Q&A
+QA_RECENT_WORDS_MULTIPLIER = 2
+QA_MATCH_THRESHOLD = 0.60    # Higher = fewer false positives in global matching
+QA_MATCH_DIFF = 0.10         # Required similarity gap vs current slide
+QA_AUDIO_BUFFER_SECONDS = 10 # Longer buffer = more context, higher latency
+
 # Recency weighting (bias toward the most recent words)
 RECENT_WORDS_COUNT = 10      # How many recent words to emphasize
 RECENT_WORDS_MULTIPLIER = 3  # Repeat recent words (>=2 boosts recency)
