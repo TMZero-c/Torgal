@@ -4,7 +4,7 @@ Trims confirmed audio to keep latency low while preserving context.
 """
 import numpy as np
 
-from config import SAMPLE_RATE, AUDIO_BUFFER_SECONDS
+from config import SAMPLE_RATE, AUDIO_BUFFER_SECONDS, WHISPER_BEAM_SIZE
 from logger import get_logger
 
 log = get_logger("audio")
@@ -67,7 +67,7 @@ class Transcriber:
 
         # Build transcribe kwargs
         transcribe_kwargs = dict(
-            beam_size=1,
+            beam_size=WHISPER_BEAM_SIZE,
             language="en",
             word_timestamps=True,
             vad_filter=True,

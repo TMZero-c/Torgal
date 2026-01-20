@@ -25,7 +25,10 @@ const DEFAULTS = {
     whisperModel: 'distil-large-v3.5',
     whisperDevice: 'cuda',
     whisperComputeType: 'float16',
+    whisperBeamSize: 1,
     embeddingModel: 'BAAI/bge-base-en-v1.5',
+    embeddingDevice: 'auto',
+    sentenceEmbeddingsEnabled: true,
 
     // Voice commands
     triggerCooldownMs: 1500,
@@ -34,6 +37,7 @@ const DEFAULTS = {
     // Partial matching
     partialFinalizeMs: 1000,
     partialMatchMinWords: 5,
+    partialMatchEnabled: true,
 
     // Q&A mode
     qaWindowWords: 24,
@@ -57,11 +61,15 @@ const FIELD_TYPES = {
     whisperModel: 'select',
     whisperDevice: 'select',
     whisperComputeType: 'select',
+    whisperBeamSize: 'select',
     embeddingModel: 'select',
+    embeddingDevice: 'select',
+    sentenceEmbeddingsEnabled: 'checkbox',
     triggerCooldownMs: 'number',
     triggerTailWords: 'number',
     partialFinalizeMs: 'number',
     partialMatchMinWords: 'number',
+    partialMatchEnabled: 'checkbox',
     qaWindowWords: 'number',
     qaMatchThreshold: 'number',
 };
@@ -81,6 +89,56 @@ document.querySelectorAll('.tab').forEach(tab => {
 // Load settings from main process
 async function loadSettings() {
     currentSettings = await window.prefsApi.getSettings();
+    const cudaAvailable = await window.prefsApi.getCudaAvailable();
+
+    // Hide GPU options if CUDA is not available
+    if (!cudaAvailable) {
+        // Hide CUDA options in Whisper device dropdown
+        const whisperDevice = $('whisperDevice');
+        if (whisperDevice) {
+            const cudaOption = whisperDevice.querySelector('option[value="cuda"]');
+            if (cudaOption) cudaOption.style.display = 'none';
+            // Force CPU if currently set to cuda
+            if (currentSettings.whisperDevice === 'cuda') {
+                currentSettings.whisperDevice = 'cpu';
+            }
+        }
+
+        // Hide GPU compute types
+        const whisperComputeType = $('whisperComputeType');
+        if (whisperComputeType) {
+            whisperComputeType.querySelectorAll('option').forEach(opt => {
+                if (opt.value === 'float16' || opt.value === 'int8_float16') {
+                    opt.style.display = 'none';
+                }
+            });
+            // Force int8 if currently set to GPU type
+            if (['float16', 'int8_float16'].includes(currentSettings.whisperComputeType)) {
+                currentSettings.whisperComputeType = 'int8';
+            }
+        }
+
+        // Hide CUDA option in embedding device dropdown
+        const embeddingDevice = $('embeddingDevice');
+        if (embeddingDevice) {
+            const cudaOption = embeddingDevice.querySelector('option[value="cuda"]');
+            if (cudaOption) cudaOption.style.display = 'none';
+            // Force auto or cpu if currently set to cuda
+            if (currentSettings.embeddingDevice === 'cuda') {
+                currentSettings.embeddingDevice = 'cpu';
+            }
+        }
+
+        // Add a note about GPU not being available
+        const modelsTab = $('tab-models');
+        if (modelsTab && !$('no-cuda-notice')) {
+            const notice = document.createElement('div');
+            notice.id = 'no-cuda-notice';
+            notice.style.cssText = 'background: #553; padding: 10px; margin-bottom: 15px; color: #fa0; font-size: 12px;';
+            notice.textContent = '⚠ CUDA not available. GPU options are hidden. Install NVIDIA GPU drivers for GPU acceleration.';
+            modelsTab.insertBefore(notice, modelsTab.firstChild);
+        }
+    }
 
     // Populate form fields
     for (const [key, type] of Object.entries(FIELD_TYPES)) {
@@ -90,6 +148,8 @@ async function loadSettings() {
         const value = currentSettings[key] ?? DEFAULTS[key];
         if (type === 'select') {
             el.value = String(value);
+        } else if (type === 'checkbox') {
+            el.checked = Boolean(value);
         } else {
             el.value = value;
         }
@@ -111,6 +171,8 @@ function collectFormValues() {
             // Check if it's a number-valued select
             const numVal = Number(el.value);
             settings[key] = isNaN(numVal) ? el.value : numVal;
+        } else if (type === 'checkbox') {
+            settings[key] = Boolean(el.checked);
         } else {
             settings[key] = parseFloat(el.value);
         }

@@ -30,7 +30,10 @@ const store = new Store({
     whisperModel: 'distil-large-v3.5',
     whisperDevice: 'cuda',
     whisperComputeType: 'float16',
+    whisperBeamSize: 1,
     embeddingModel: 'BAAI/bge-base-en-v1.5',
+    embeddingDevice: 'auto',
+    sentenceEmbeddingsEnabled: true,
 
     // Voice command settings
     triggerCooldownMs: 1500,
@@ -39,6 +42,7 @@ const store = new Store({
     // Partial matching
     partialFinalizeMs: 1000,
     partialMatchMinWords: 5,
+    partialMatchEnabled: true,
 
     // Q&A mode
     qaWindowWords: 24,
@@ -50,10 +54,10 @@ function isWindows() {
   return process.platform === 'win32';
 }
 
-function resolvePythonCommand() {
+function resolvePythonCommand(preferredVariant = null) {
   // Priority:
   // 1) Explicit env override
-  // 2) Dev venv at repo root (.venv, .venv-cpu, .venv-gpu)
+  // 2) Dev venv at repo root (variant order depends on preferredVariant)
   // 3) Windows launcher 'py -3'
   // 4) python or python3 on PATH
   // Note: When packaged, we use bundled executables directly, not Python
@@ -61,9 +65,13 @@ function resolvePythonCommand() {
 
   if (process.env.PYTHON_PATH) candidates.push(process.env.PYTHON_PATH);
 
-  // Check for various venv locations
-  const venvNames = ['.venv', '.venv-gpu', '.venv-cpu'];
-  for (const venv of venvNames) {
+  const venvOrder = (() => {
+    if (preferredVariant === 'gpu') return ['.venv-gpu', '.venv', '.venv-cpu'];
+    if (preferredVariant === 'cpu') return ['.venv-cpu', '.venv', '.venv-gpu'];
+    return ['.venv', '.venv-gpu', '.venv-cpu'];
+  })();
+
+  for (const venv of venvOrder) {
     if (isWindows()) {
       candidates.push(path.join(projectRoot, venv, 'Scripts', 'python.exe'));
     } else {
@@ -84,6 +92,32 @@ function resolvePythonCommand() {
     } catch (_) { }
   }
   return null;
+}
+
+function getCliArgs() {
+  const args = new Set(process.argv.slice(2).map(a => a.toLowerCase()));
+
+  const npmArgvRaw = process.env.npm_config_argv;
+  if (npmArgvRaw) {
+    try {
+      const parsed = JSON.parse(npmArgvRaw);
+      const original = Array.isArray(parsed.original) ? parsed.original : [];
+      for (const arg of original) {
+        if (typeof arg === 'string') args.add(arg.toLowerCase());
+      }
+    } catch (_) { }
+  }
+
+  args.delete('--');
+  return Array.from(args);
+}
+
+function shouldForcePython() {
+  const envFlag = (process.env.TORGAL_DEV_FORCE_PY || '').toLowerCase();
+  if (envFlag === '1' || envFlag === 'true') return true;
+
+  const argv = getCliArgs();
+  return argv.includes('--force-python') || argv.includes('--no-bundled');
 }
 
 // Resolve bundled executable path (for packaged app)
@@ -133,6 +167,21 @@ function resolvePythonScript(scriptName) {
 let pythonCmd = null;
 let serverScript = resolvePythonScript('server.py');
 
+// Dev flag to pick which Python env to prefer when running `npm start`.
+// Usage: `npm start -- --gpu` or `npm start -- --cpu`, or set TORGAL_DEV_VARIANT.
+function getDevVariant() {
+  const envVariant = (process.env.TORGAL_DEV_VARIANT || '').toLowerCase();
+  if (envVariant === 'gpu' || envVariant === 'cpu') return envVariant;
+
+  const argv = getCliArgs();
+  if (argv.includes('--gpu')) return 'gpu';
+  if (argv.includes('--cpu')) return 'cpu';
+
+  return null; // auto
+}
+
+const devVariant = getDevVariant();
+
 let python = null;
 let presenterWin = null;
 let slideshowWin = null;
@@ -177,6 +226,10 @@ function startPython() {
   log('STARTUP', 'Spawning Python server...');
   broadcastStatus('model_loading');
 
+  if (devVariant) {
+    log('STARTUP', `Dev variant requested: ${devVariant}`);
+  }
+
   // Pass settings to Python via environment variables
   const settings = store.getAll();
   const env = {
@@ -186,7 +239,10 @@ function startPython() {
     TORGAL_WHISPER_MODEL: settings.whisperModel,
     TORGAL_WHISPER_DEVICE: settings.whisperDevice,
     TORGAL_WHISPER_COMPUTE_TYPE: settings.whisperComputeType,
+    TORGAL_WHISPER_BEAM_SIZE: String(settings.whisperBeamSize),
     TORGAL_EMBEDDING_MODEL: settings.embeddingModel,
+    TORGAL_EMBEDDING_DEVICE: settings.embeddingDevice,
+    TORGAL_SENTENCE_EMBEDDINGS_ENABLED: String(settings.sentenceEmbeddingsEnabled),
     // Audio settings
     TORGAL_SAMPLE_RATE: String(settings.audioSampleRate),
     TORGAL_AUDIO_BUFFER_SECONDS: String(settings.audioBufferSeconds),
@@ -204,29 +260,39 @@ function startPython() {
     // Partial matching
     TORGAL_PARTIAL_FINALIZE_MS: String(settings.partialFinalizeMs),
     TORGAL_PARTIAL_MATCH_MIN_WORDS: String(settings.partialMatchMinWords),
+    TORGAL_PARTIAL_MATCH_ENABLED: String(settings.partialMatchEnabled),
     // Q&A mode
     TORGAL_QA_WINDOW_WORDS: String(settings.qaWindowWords),
     TORGAL_QA_MATCH_THRESHOLD: String(settings.qaMatchThreshold),
   };
 
+  if (devVariant === 'cpu') {
+    env.TORGAL_WHISPER_DEVICE = 'cpu';
+    env.TORGAL_WHISPER_COMPUTE_TYPE = 'int8';
+    log('STARTUP', 'Dev CPU variant: forcing Whisper device=cpu, compute=int8');
+  }
+
   // Check for bundled executable first
-  const bundledServer = resolveBundledExe('server');
+  const forcePy = shouldForcePython();
+
+  const bundledServer = forcePy ? null : resolveBundledExe('server');
   if (bundledServer) {
     log('STARTUP', `Using bundled executable: ${bundledServer}`);
     python = spawn(bundledServer, [], { env });
   } else {
     // Fall back to Python interpreter
-    if (!pythonCmd) pythonCmd = resolvePythonCommand();
+    if (!pythonCmd) pythonCmd = resolvePythonCommand(devVariant);
     const args = [];
     if (pythonCmd === 'py' && isWindows()) {
       args.push('-3');
     }
     args.push(serverScript);
-    log('STARTUP', `Using Python: ${pythonCmd} ${args.join(' ')}`);
+    log('STARTUP', `Using Python: ${pythonCmd} ${args.join(' ')}${forcePy ? ' (forced)' : ''}`);
     python = spawn(pythonCmd || 'python', args, { env });
   }
 
   let buffer = '';
+  let cudaAvailable = false;  // Track CUDA availability from Python
   python.stdout.on('data', data => {
     buffer += data.toString();
     const lines = buffer.split('\n');
@@ -238,7 +304,11 @@ function startPython() {
           const msg = JSON.parse(line);
           log('FROM_PYTHON', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
           if (msg.type === 'ready') {
-            broadcastStatus('model_ready');
+            cudaAvailable = Boolean(msg.cuda_available);
+            log('STARTUP', `CUDA available: ${cudaAvailable}`);
+            // Store globally for preferences window
+            global.cudaAvailable = cudaAvailable;
+            broadcastStatus('model_ready', { cuda_available: cudaAvailable });
           } else if (msg.type === 'embedding_model_loading') {
             // Pause audio and show loading status while embedding model loads
             isPresentationLoading = true;
@@ -254,7 +324,12 @@ function startPython() {
     }
   });
 
-  python.stderr.on('data', d => console.log('[Python Error]', d.toString()));
+  python.stderr.on('data', d => {
+    const errText = d.toString();
+    console.log('[Python Error]', errText);
+    // Broadcast errors to renderer for dev console visibility
+    broadcast('python-error', { text: errText });
+  });
   python.on('error', err => console.error('[Python Start Error]', err));
 }
 
@@ -290,6 +365,7 @@ ipcMain.handle('prefs:saveSettings', (_, settings) => {
   store.setAll(settings);
   return true;
 });
+ipcMain.handle('prefs:getCudaAvailable', () => global.cudaAvailable || false);
 ipcMain.handle('prefs:getModelCachePath', () => getModelCachePath());
 ipcMain.handle('prefs:openCacheFolder', async () => {
   const cachePath = getModelCachePath();
@@ -328,6 +404,16 @@ ipcMain.handle('prefs:clearCache', async () => {
   }
 });
 ipcMain.on('prefs:restartApp', () => {
+  // Close all windows before relaunch to avoid orphaned slideshow window
+  if (slideshowWin && !slideshowWin.isDestroyed()) {
+    slideshowWin.close();
+  }
+  if (preferencesWin && !preferencesWin.isDestroyed()) {
+    preferencesWin.close();
+  }
+  if (presenterWin && !presenterWin.isDestroyed()) {
+    presenterWin.close();
+  }
   app.relaunch();
   app.exit(0);
 });
@@ -377,18 +463,19 @@ function runSlideParser(filePath) {
 
   let py;
   // Check for bundled executable first
-  const bundledParser = resolveBundledExe('parse_slides');
+  const forcePy = shouldForcePython();
+  const bundledParser = forcePy ? null : resolveBundledExe('parse_slides');
   if (bundledParser) {
     log('PARSE', `Using bundled executable: ${bundledParser}`);
     py = spawn(bundledParser, [filePath], { env });
   } else {
     // Fall back to Python interpreter
     const scriptPath = resolvePythonScript('parse_slides.py');
-    if (!pythonCmd) pythonCmd = resolvePythonCommand();
+    if (!pythonCmd) pythonCmd = resolvePythonCommand(devVariant);
     const args = [];
     if (pythonCmd === 'py' && isWindows()) args.push('-3');
     args.push(scriptPath, filePath);
-    log('PARSE', `Using Python: ${pythonCmd} ${args.join(' ')}`);
+    log('PARSE', `Using Python: ${pythonCmd} ${args.join(' ')}${forcePy ? ' (forced)' : ''}`);
     py = spawn(pythonCmd || 'python', args, { env });
   }
 

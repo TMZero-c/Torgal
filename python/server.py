@@ -410,6 +410,11 @@ def main():
     log("SERVER STARTING")
     log("=" * 50)
 
+    # Check CUDA availability early
+    import torch
+    cuda_available = torch.cuda.is_available()
+    log(f"CUDA available: {cuda_available}")
+
     model = build_whisper_model()
     log("Whisper model loaded!")
 
@@ -420,7 +425,7 @@ def main():
     speech_state = SpeechState()
 
     log("Sending 'ready' to Electron")
-    send_type(IpcType.READY)
+    send_type(IpcType.READY, cuda_available=cuda_available)
     log("Waiting for messages on stdin...")
 
     for line in sys.stdin:

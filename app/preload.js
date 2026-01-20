@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld('api', {
     onSlidesLoaded: (callback) => ipcRenderer.on('slides-loaded', (_event, data) => callback(data)),
     onTranscript: (callback) => ipcRenderer.on('transcript', (_event, msg) => callback(msg)),
     onPauseAudio: (callback) => ipcRenderer.on('pause-audio', (_event, data) => callback(data)),
-    onSettingsLoaded: (callback) => ipcRenderer.on('settings-loaded', (_event, settings) => callback(settings))
+    onSettingsLoaded: (callback) => ipcRenderer.on('settings-loaded', (_event, settings) => callback(settings)),
+    onPythonError: (callback) => ipcRenderer.on('python-error', (_event, data) => callback(data))
 });

@@ -403,6 +403,11 @@ function bindUi() {
         if (settings.silenceSmoothing) SILENCE_SMOOTHING = settings.silenceSmoothing;
     });
 
+    // Listen for Python errors and log to dev console
+    window.api.onPythonError((data) => {
+        console.error('[Python Error]', data.text);
+    });
+
     window.api.onSlidesLoaded(data => {
         log('SLIDES', `Received slides-loaded event: ${data.status}`);
         // Resume audio processing when slides are loaded

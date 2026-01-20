@@ -17,8 +17,8 @@
       "packagerConfig": {
         "asar": true,
         "extraResource": [
-          "../python/dist/gpu/server.exe",
-          "../python/dist/gpu/parse_slides.exe"
+          "../python/dist/cpu/server.exe",
+          "../python/dist/cpu/parse_slides.exe"
         ]
       },
       "makers": [

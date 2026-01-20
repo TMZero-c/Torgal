@@ -5,9 +5,8 @@ Run this before packaging the Electron app.
 Usage:
     cd python
     pip install pyinstaller
-    python build_exe.py           # Build CPU version only (default)
-    python build_exe.py --gpu     # Build GPU version only
-    python build_exe.py --both    # Build both CPU and GPU versions
+    python build_exe.py           # Build GPU version (default, recommended)
+    python build_exe.py --cpu     # Build CPU version only (smaller, no CUDA)
 """
 import subprocess
 import sys
@@ -20,7 +19,6 @@ import shutil
 EXCLUDE_PACKAGES = [
     # Only exclude things we definitely don't use
     'pytest',
-    'unittest', 
     'tensorflow',
     'keras',
     'jax',
@@ -178,13 +176,13 @@ def build(mode='cpu'):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Build Torgal Python executables')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('--gpu', action='store_true', help='Build GPU/CUDA version only')
+    group.add_argument('--cpu', action='store_true', help='Build CPU-only version (smaller, no CUDA)')
     group.add_argument('--both', action='store_true', help='Build both CPU and GPU versions')
     args = parser.parse_args()
     
     if args.both:
         build('both')
-    elif args.gpu:
-        build('gpu')
-    else:
+    elif args.cpu:
         build('cpu')
+    else:
+        build('gpu')  # GPU is now the default

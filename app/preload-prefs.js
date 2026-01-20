@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('prefsApi', {
     getSettings: () => ipcRenderer.invoke('prefs:getSettings'),
     saveSettings: (settings) => ipcRenderer.invoke('prefs:saveSettings', settings),
+    getCudaAvailable: () => ipcRenderer.invoke('prefs:getCudaAvailable'),
     getModelCachePath: () => ipcRenderer.invoke('prefs:getModelCachePath'),
     openCacheFolder: () => ipcRenderer.invoke('prefs:openCacheFolder'),
     clearCache: () => ipcRenderer.invoke('prefs:clearCache'),

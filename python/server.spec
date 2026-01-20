@@ -30,7 +30,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['pytest', 'unittest', 'tensorflow', 'keras', 'jax', 'flax', 'sphinx', 'IPython', 'jupyter', 'notebook', 'matplotlib'],
+    excludes=['pytest', 'tensorflow', 'keras', 'jax', 'flax', 'sphinx', 'IPython', 'jupyter', 'notebook', 'matplotlib'],
     noarchive=False,
     optimize=0,
 )

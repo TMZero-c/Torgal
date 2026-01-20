@@ -1,7 +1,7 @@
 """
 Embedding model loader and device selection.
 """
-from config import EMBEDDING_MODEL
+from config import EMBEDDING_MODEL, EMBEDDING_DEVICE
 from logger import get_logger
 
 log = get_logger("embeddings")
@@ -19,7 +19,20 @@ def get_embedding_model():
         if torch.cuda.is_available():
             log(f"CUDA device: {torch.cuda.get_device_name(0)}")
         from sentence_transformers import SentenceTransformer
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        requested = (EMBEDDING_DEVICE or "auto").lower()
+        if requested == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        elif requested == "cuda":
+            if torch.cuda.is_available():
+                device = "cuda"
+            else:
+                log("CUDA requested for embeddings but not available; falling back to CPU")
+                device = "cpu"
+        elif requested == "cpu":
+            device = "cpu"
+        else:
+            log(f"Unknown embedding device '{EMBEDDING_DEVICE}', falling back to auto")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
         log(f"Using device: {device}")
         _model = SentenceTransformer(EMBEDDING_MODEL, device=device)
         log("Embedding model loaded!")

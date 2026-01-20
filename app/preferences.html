@@ -356,30 +356,56 @@
             <div class="form-group">
                 <label for="whisperModel">Active Model</label>
                 <select id="whisperModel">
-                    <option value="tiny">tiny (~75 MB)</option>
-                    <option value="base">base (~140 MB)</option>
-                    <option value="small">small (~470 MB)</option>
-                    <option value="medium">medium (~1.5 GB)</option>
-                    <option value="large-v2">large-v2 (~3 GB)</option>
-                    <option value="large-v3">large-v3 (~3 GB)</option>
-                    <option value="distil-large-v3.5">distil-large-v3.5 (~1.5 GB)</option>
+                    <optgroup label="English-only (faster, smaller)">
+                        <option value="tiny.en">tiny.en (~75 MB) - Fastest, low accuracy</option>
+                        <option value="base.en">base.en (~140 MB) - Fast, basic accuracy</option>
+                        <option value="small.en">small.en (~470 MB) - Balanced</option>
+                        <option value="medium.en">medium.en (~1.5 GB) - Good accuracy</option>
+                    </optgroup>
+                    <optgroup label="Multilingual">
+                        <option value="tiny">tiny (~75 MB) - Fastest, low accuracy</option>
+                        <option value="base">base (~140 MB) - Fast, basic accuracy</option>
+                        <option value="small">small (~470 MB) - Balanced</option>
+                        <option value="medium">medium (~1.5 GB) - Good accuracy</option>
+                        <option value="large-v2">large-v2 (~3 GB) - High accuracy</option>
+                        <option value="large-v3">large-v3 (~3 GB) - Best accuracy</option>
+                    </optgroup>
+                    <optgroup label="Distilled (recommended)">
+                        <option value="distil-small.en">distil-small.en (~330 MB) - Fast + good accuracy</option>
+                        <option value="distil-medium.en">distil-medium.en (~750 MB) - Balanced</option>
+                        <option value="distil-large-v2">distil-large-v2 (~750 MB) - Fast + high accuracy</option>
+                        <option value="distil-large-v3">distil-large-v3 (~750 MB) - Latest distilled</option>
+                        <option value="distil-large-v3.5">distil-large-v3.5 (~800 MB) - Best distilled ★</option>
+                    </optgroup>
                 </select>
-                <div class="help-text">Larger models = better accuracy, slower startup</div>
+                <div class="help-text">Distilled models offer best speed/accuracy tradeoff. English-only (.en) models are faster for English.</div>
+            </div>
+            <div class="form-group">
+                <label for="whisperBeamSize">Beam Size</label>
+                <select id="whisperBeamSize">
+                    <option value="1">1 - Fastest (greedy)</option>
+                    <option value="2">2 - Fast + slightly better</option>
+                    <option value="3">3 - Balanced</option>
+                    <option value="5">5 - More accurate, slower</option>
+                </select>
+                <div class="help-text">Higher beam size improves accuracy for small models, but slows down inference</div>
             </div>
             <div class="form-group">
                 <label for="whisperDevice">Compute Device</label>
                 <select id="whisperDevice">
-                    <option value="cuda">CUDA (NVIDIA GPU)</option>
-                    <option value="cpu">CPU</option>
+                    <option value="cuda">CUDA (NVIDIA GPU) - Recommended</option>
+                    <option value="cpu">CPU - Slower, works everywhere</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="whisperComputeType">Compute Type</label>
                 <select id="whisperComputeType">
-                    <option value="float16">float16 (GPU, faster)</option>
-                    <option value="float32">float32 (More accurate)</option>
-                    <option value="int8">int8 (CPU, memory efficient)</option>
+                    <option value="float16">float16 - GPU default, fast</option>
+                    <option value="int8_float16">int8_float16 - GPU, faster, slightly less accurate</option>
+                    <option value="float32">float32 - Most accurate, slowest</option>
+                    <option value="int8">int8 - CPU optimized, memory efficient</option>
                 </select>
+                <div class="help-text">Use int8 for CPU, float16 for GPU</div>
             </div>
         </div>
 
@@ -388,12 +414,36 @@
             <div class="form-group">
                 <label for="embeddingModel">Model</label>
                 <select id="embeddingModel">
-                    <option value="BAAI/bge-small-en-v1.5">bge-small-en (~130 MB)</option>
-                    <option value="BAAI/bge-base-en-v1.5">bge-base-en (~440 MB)</option>
-                    <option value="BAAI/bge-large-en-v1.5">bge-large-en (~1.3 GB)</option>
-                    <option value="sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (~90 MB)</option>
+                    <optgroup label="Fast (recommended for CPU)">
+                        <option value="sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (~90 MB) - Fastest</option>
+                        <option value="sentence-transformers/paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (~60 MB) - Tiny, fast</option>
+                    </optgroup>
+                    <optgroup label="Balanced">
+                        <option value="BAAI/bge-small-en-v1.5">bge-small-en (~130 MB) - Good quality</option>
+                        <option value="sentence-transformers/all-mpnet-base-v2">all-mpnet-base-v2 (~420 MB) - High quality</option>
+                    </optgroup>
+                    <optgroup label="High Quality (GPU recommended)">
+                        <option value="BAAI/bge-base-en-v1.5">bge-base-en (~440 MB) - Very good ★</option>
+                        <option value="BAAI/bge-large-en-v1.5">bge-large-en (~1.3 GB) - Best quality</option>
+                    </optgroup>
                 </select>
-                <div class="help-text">Larger = better semantic matching, more memory</div>
+                <div class="help-text">Larger = better semantic matching, more memory. Use MiniLM for CPU.</div>
+            </div>
+            <div class="form-group">
+                <label for="embeddingDevice">Compute Device</label>
+                <select id="embeddingDevice">
+                    <option value="auto">Auto (use GPU if available)</option>
+                    <option value="cuda">CUDA (NVIDIA GPU)</option>
+                    <option value="cpu">CPU</option>
+                </select>
+                <div class="help-text">GPU dramatically speeds up embedding computation</div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="sentenceEmbeddingsEnabled">
+                    Enable sentence embeddings
+                </label>
+                <div class="help-text">More accurate for bullet points, higher CPU/GPU usage</div>
             </div>
         </div>
 
@@ -432,6 +482,13 @@
 
         <div class="section">
             <h2>Partial Matching</h2>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="partialMatchEnabled">
+                    Enable partial matching
+                </label>
+                <div class="help-text">Improves responsiveness while speaking, adds CPU load</div>
+            </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="partialFinalizeMs">Finalize After Silence (ms)</label>

@@ -13,6 +13,7 @@ WHISPER_COMPUTE_TYPE = "float16"     # Lower precision = faster, can reduce accu
 
 # Embeddings
 EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"  # Larger model = better semantics, slower
+EMBEDDING_DEVICE = "auto"  # auto|cuda|cpu
 
 # Matching behavior
 MATCH_THRESHOLD = 0.55       # Higher = fewer jumps, lower = more sensitive
