@@ -136,3 +136,11 @@ Output:
 ## Release note (GPU builds)
 
 GPU builds are large and can exceed GitHub’s 2 GB per-asset limit. If you upload to Releases, split the zip into multiple parts and upload each part separately.
+
+## Future plans
+- Performance optimizations for CPU mode (faster embeddings, lighter default models, smarter caching)
+- Bug fixes and stability improvements across Windows builds
+- Live transcript text highlighting on the active slide
+- Presenter and slideshow zoom controls
+- Broader file compatibility (PPTX import, Google Slides export workflows, richer PDF handling)
+- Better onboarding and setup diagnostics (GPU detection, model download progress, mic checks)
