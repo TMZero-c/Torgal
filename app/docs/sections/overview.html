@@ -1,0 +1,22 @@
+<section id="overview" class="ui-card">
+    <h2>Overview</h2>
+    <p>
+        Torgal is a local-first presenter assistant. It captures microphone audio, transcribes speech on-device,
+        and uses semantic matching to decide when to advance slides.
+    </p>
+    <ul>
+        <li>Electron provides the presenter UI and slideshow window.</li>
+        <li>Python handles transcription, embeddings, and matching.</li>
+        <li>Explicit voice commands are matched before embeddings for immediate control.</li>
+        <li>Whisper hotwords are derived from slide text to improve recognition.</li>
+        <li>All processing runs on-device; no cloud API is required.</li>
+    </ul>
+    <p>
+        Data flow is intentionally modular: audio and UI remain in Electron, while ML logic runs in Python. Each
+        stage (capture, transcription, matching, transition) can be tuned independently.
+    </p>
+    <p class="ui-callout">
+        This documentation is structured by feature and subsystem. Use the table of contents to jump directly
+        to the area you are working on.
+    </p>
+</section>

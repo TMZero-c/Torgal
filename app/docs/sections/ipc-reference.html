@@ -1,0 +1,36 @@
+<section id="ipc-reference" class="ui-card">
+    <h2>IPC reference</h2>
+    <h3>Renderer → Main (Electron)</h3>
+    <ul>
+        <li><code>audio-chunk</code>: stream audio chunk (base64 PCM16 or { data, rms, silent }).</li>
+        <li><code>reset</code>: reset matching state.</li>
+        <li><code>goto-slide</code>: set current slide index.</li>
+        <li><code>set-qa-mode</code>: toggle Q&A mode.</li>
+        <li><code>toggle-audio-pause</code>: pause or resume audio processing.</li>
+        <li><code>dialog:openFile</code>: open file picker for PDF/PPTX.</li>
+    </ul>
+
+    <h3>Main → Renderer</h3>
+    <ul>
+        <li><code>slides-loaded</code>: slide data (images + text) after parsing.</li>
+        <li><code>transcript</code>: Python messages (ready, partial, final, match_eval, slide_transition).</li>
+        <li><code>pause-audio</code>: pause when loading a new deck.</li>
+        <li><code>settings-loaded</code>: current settings on startup.</li>
+        <li><code>python-error</code>: stderr or spawn errors from Python.</li>
+        <li><code>transcript</code> with status payloads: model_loading, model_ready, slides_processing,
+            slides_ready, slides_failed, embedding_model_loading, slides_embedded.</li>
+    </ul>
+
+    <h3>Main ↔ Python (stdin/stdout)</h3>
+    <ul>
+        <li>To Python: <code>audio</code>, <code>load_slides</code>, <code>goto_slide</code>, <code>reset</code>, <code>set_qa_mode</code></li>
+        <li>From Python: <code>ready</code>, <code>partial</code>, <code>final</code>, <code>match_eval</code>,
+            <code>slide_transition</code>, <code>slides_ready</code>, <code>slide_set</code>,
+            <code>reset_done</code>, <code>embedding_model_loading</code>
+        </li>
+    </ul>
+    <p>
+        The Python server streams newline-delimited JSON. The renderer listens on the <code>transcript</code>
+        channel and updates the UI for both speech and analytics.
+    </p>
+</section>

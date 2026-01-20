@@ -1,0 +1,14 @@
+<section id="upload-parse" class="ui-card">
+    <h2>Upload and slide parsing</h2>
+    <ul>
+        <li>PDF is the most reliable format.</li>
+        <li>PPTX can be selected, but if it fails, export to PDF and retry.</li>
+        <li>Slides are rendered to images and text is extracted for matching and hotword hints.</li>
+    </ul>
+    <p>
+        Parsing runs in a short-lived Python process (PyMuPDF). The main Python server then loads the slide
+        text, extracts hotwords for Whisper, and builds embeddings (unless keyword-only matching is enabled).
+        Audio is paused during parsing and while the embedding model loads to avoid false transitions, and
+        matching context is reset once the new deck is loaded.
+    </p>
+</section>

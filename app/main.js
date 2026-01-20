@@ -72,6 +72,19 @@ function isWindows() {
   return process.platform === 'win32';
 }
 
+function getWorkAreaBounds() {
+  return screen.getPrimaryDisplay().workArea;
+}
+
+function getDocsBounds() {
+  const workArea = getWorkAreaBounds();
+  const width = Math.round(workArea.width * 0.75);
+  const height = Math.round(workArea.height * 0.75);
+  const x = workArea.x + Math.round((workArea.width - width) / 2);
+  const y = workArea.y + Math.round((workArea.height - height) / 2);
+  return { width, height, x, y };
+}
+
 function resolvePythonCommand(preferredVariant = null) {
   // Priority:
   // 1) Explicit env override
@@ -573,7 +586,6 @@ function openPreferences() {
 
   preferencesWin.loadFile(path.join(__dirname, 'preferences.html'));
   preferencesWin.setTitle('Preferences - Torgal');
-  preferencesWin.setMenuBarVisibility(false);
 
   preferencesWin.on('closed', () => {
     preferencesWin = null;
@@ -586,9 +598,12 @@ function openDocumentation() {
     return;
   }
 
+  const docsBounds = getDocsBounds();
   docsWin = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: docsBounds.width,
+    height: docsBounds.height,
+    x: docsBounds.x,
+    y: docsBounds.y,
     parent: presenterWin,
     modal: false,
     resizable: true,
@@ -603,7 +618,6 @@ function openDocumentation() {
     query: { version: app.getVersion() }
   });
   docsWin.setTitle('Torgal Documentation');
-  docsWin.setMenuBarVisibility(false);
 
   docsWin.on('closed', () => {
     docsWin = null;
@@ -614,7 +628,6 @@ function createMenu() {
   const isMac = process.platform === 'darwin';
 
   const template = [
-    // App menu (macOS only)
     ...(isMac ? [{
       label: app.name,
       submenu: [
@@ -635,7 +648,6 @@ function createMenu() {
         { role: 'quit' }
       ]
     }] : []),
-    // File menu
     {
       label: 'File',
       submenu: [
@@ -663,19 +675,6 @@ function createMenu() {
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
-    // Edit menu
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' }
-      ]
-    },
-    // View menu
     {
       label: 'View',
       submenu: [
@@ -690,7 +689,6 @@ function createMenu() {
         { role: 'togglefullscreen' }
       ]
     },
-    // Window menu
     {
       label: 'Window',
       submenu: [
@@ -703,7 +701,6 @@ function createMenu() {
         ])
       ]
     },
-    // Help menu
     {
       label: 'Help',
       submenu: [
@@ -731,8 +728,12 @@ function createMenu() {
 }
 
 function createWindows() {
+  const workArea = getWorkAreaBounds();
   presenterWin = new BrowserWindow({
-    width: 1100, height: 900,
+    width: workArea.width,
+    height: workArea.height,
+    x: workArea.x,
+    y: workArea.y,
     icon: path.join(__dirname, 'assets/IMPORTANT.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js') }
   });
@@ -762,7 +763,6 @@ function createSlideshowWindow() {
     x: externalDisplay ? externalDisplay.bounds.x : 0,
     y: externalDisplay ? externalDisplay.bounds.y : 0,
     fullscreen: !!externalDisplay,
-    autoHideMenuBar: true,
     icon: path.join(__dirname, 'assets/IMPORTANT.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js') }
   });

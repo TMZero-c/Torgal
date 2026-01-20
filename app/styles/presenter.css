@@ -150,8 +150,18 @@ body { font-family: var(--font-sans); background: var(--color-bg-app); color: va
 .stat-value { margin-top: 2px; }
 .stat-detail { margin-top: 5px; }
 
+.stat-value-slot {
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.stat-value-slot .stat-detail {
+    margin-top: 0;
+}
+
 .intent-card { margin-bottom: var(--space-lg); }
-.intent-label { margin-bottom: var(--space-sm); }
+.intent-label { margin-bottom: 0; line-height: 1.4; }
 
 .decision-card .decision-row { margin-top: 6px; flex-wrap: nowrap; overflow: hidden; }
 .decision-card .decision-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }

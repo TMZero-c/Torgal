@@ -1,0 +1,79 @@
+<section id="preferences" class="ui-card">
+    <h2>Preferences reference</h2>
+    <p>
+        Preferences are organized by tab. Saving restarts the app to apply settings because the Python backend
+        is reinitialized with the new environment values.
+    </p>
+
+    <h3>Audio</h3>
+    <ul>
+        <li><strong>Sample Rate</strong>: lower reduces CPU load; 16kHz is optimal for Whisper.</li>
+        <li><strong>Chunk Size</strong>: smaller is more responsive but uses more CPU.</li>
+        <li><strong>Silence Threshold</strong>: gates what is considered silence.</li>
+        <li><strong>Smoothing</strong>: stabilizes silence detection.</li>
+        <li><strong>Audio Buffer</strong>: larger buffers give more context but add latency.</li>
+    </ul>
+    <p>
+        If you hear delays in transitions, start by reducing buffer size and chunk size. If you hear choppy
+        partial text, increase smoothing slightly.
+    </p>
+
+    <h3>Matching</h3>
+    <ul>
+        <li><strong>Match Threshold</strong>: minimum similarity to trigger a transition.</li>
+        <li><strong>Cooldown Words</strong>: spacing between transitions.</li>
+        <li><strong>Match Difference</strong>: required gap versus the current slide.</li>
+        <li><strong>Window Words</strong>: how many words are used for matching.</li>
+        <li><strong>Stay / Forward / Back Bias</strong>: preferences for local slides.</li>
+    </ul>
+    <p>
+        To reduce accidental jumps, raise the threshold and increase the stay bias. To make the app more eager
+        to advance, lower the threshold and increase forward bias slightly.
+    </p>
+
+    <h3>Models</h3>
+    <ul>
+        <li><strong>Whisper Model</strong>: accuracy vs speed and download size.</li>
+        <li><strong>Beam Size</strong>: higher can improve accuracy, especially for smaller models.</li>
+        <li><strong>Compute Device</strong>: CUDA for NVIDIA GPUs, CPU otherwise.</li>
+        <li><strong>Compute Type</strong>: float16 for GPU, int8 for CPU.</li>
+        <li><strong>Embedding Model</strong>: affects semantic quality and memory usage.</li>
+        <li><strong>Embedding Device</strong>: auto uses GPU if available, or choose CUDA/CPU.</li>
+        <li><strong>Sentence Embeddings</strong>: improves bullet-level accuracy at higher cost.</li>
+    </ul>
+    <p>
+        Smaller models are recommended for CPU-only devices. GPU devices can usually run higher-quality models
+        without breaking real-time performance.
+    </p>
+    <p>
+        Sentence embeddings are applied as a hybrid boost to current/adjacent slides by default (all slides in
+        Q&A mode). You can cap sentences per slide in the config/env if needed.
+    </p>
+
+    <h3>Transcription filtering</h3>
+    <ul>
+        <li><strong>Min Word Length</strong>: filters very short tokens except common single-letter words.</li>
+        <li><strong>Fuzzy Match Min Length</strong>: minimum word length for fuzzy cleanup.</li>
+        <li><strong>Remove Duplicates</strong>: drops repeated words like “the the the”.</li>
+        <li><strong>Filter Punctuation</strong>: removes punctuation-only tokens.</li>
+        <li><strong>Batch Beam Size</strong>: beam size used when batch audio mode is enabled.</li>
+    </ul>
+
+    <h3>Advanced</h3>
+    <ul>
+        <li><strong>Voice Commands</strong>: cooldown and tail-word detection.</li>
+        <li><strong>Partial Matching</strong>: enable streaming matches, tune silence finalize and minimum words.</li>
+        <li><strong>Q&A overrides</strong>: window words and thresholds for global matching.</li>
+        <li><strong>Reset</strong>: restores all defaults and restarts the app.</li>
+    </ul>
+
+    <p class="ui-callout">
+        Additional tuning knobs are available via <code>python/config.py</code> or <code>TORGAL_</code>
+        environment variables (recency weighting, keyword/title boosts, non-adjacent thresholds/boosts, Q&A
+        diff/recency/audio buffer, command min-words-between, and partial-match stability/cooldowns).
+    </p>
+
+    <p class="ui-callout">
+        GPU-only options are hidden automatically when CUDA is not available.
+    </p>
+</section>

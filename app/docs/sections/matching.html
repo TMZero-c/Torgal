@@ -1,0 +1,31 @@
+<section id="matching" class="ui-card">
+    <h2>Matching and analytics</h2>
+    <p>
+        Torgal compares speech embeddings against slide embeddings and applies keyword/title boosts. By default,
+        it considers the current slide and its neighbors for stable transitions.
+    </p>
+    <ul>
+        <li><strong>Window words</strong>: how much recent speech is considered.</li>
+        <li><strong>Cooldown words</strong>: minimum words between transitions.</li>
+        <li><strong>Match threshold</strong>: minimum confidence to trigger a change.</li>
+        <li><strong>Match difference</strong>: required gap vs the current slide.</li>
+        <li><strong>Stay/forward/back bias</strong>: how eager the matcher is to move.</li>
+        <li><strong>Recency weighting</strong>: recent words are emphasized for intent stability.</li>
+        <li><strong>Keyword/title boosts</strong>: lexical overlap increases confidence.</li>
+        <li><strong>Sentence embeddings</strong>: hybrid scoring for bullets (current/adjacent, or all in Q&A).</li>
+        <li><strong>Intent-changing phrase</strong>: phrase most responsible for the current intent shift.</li>
+    </ul>
+    <p>
+        Partial matching can trigger early transitions while you speak. It is useful for responsiveness but can
+        increase CPU usage.
+    </p>
+    <p>
+        Local matching compares the previous, current, and next slides for stability. Q&A mode expands matching
+        across all slides with stricter thresholds and a larger window. Non-adjacent jumps are available via
+        config/env overrides but are disabled by default. Keyword-only matching skips embeddings entirely.
+    </p>
+    <div class="ui-callout ui-callout--info">
+        Example: if your talk is closely scripted, you can lower the threshold slightly and keep the stay bias
+        low. For ad‑lib talks, raise the threshold and increase stay bias to prevent jumps.
+    </div>
+</section>

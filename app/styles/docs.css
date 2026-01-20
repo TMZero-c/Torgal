@@ -14,6 +14,43 @@ body {
     line-height: var(--line-normal);
 }
 
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+}
+
+body::-webkit-scrollbar,
+.toc::-webkit-scrollbar,
+.docs-content::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+body::-webkit-scrollbar-track,
+.toc::-webkit-scrollbar-track,
+.docs-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+body::-webkit-scrollbar-thumb,
+.toc::-webkit-scrollbar-thumb,
+.docs-content::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+body::-webkit-scrollbar-thumb:hover,
+.toc::-webkit-scrollbar-thumb:hover,
+.docs-content::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-border-muted);
+}
+
 .page {
     max-width: 980px;
     margin: 0 auto;
@@ -124,6 +161,11 @@ a:hover {
     margin-bottom: 0;
 }
 
+.toc a.is-active {
+    color: var(--color-text);
+    font-weight: 600;
+}
+
 .doc-section__header {
     display: flex;
     align-items: center;
@@ -164,7 +206,38 @@ a:hover {
     display: none;
 }
 
-@media (max-width: 920px) {
+.docs-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+    position: sticky;
+    top: var(--space-xl);
+    z-index: 2;
+    background: var(--color-bg-panel-alt);
+    border: 1px solid var(--color-bg-panel-border);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.docs-actions.ui-card {
+    padding: var(--space-md) var(--space-lg);
+}
+
+.docs-actions__title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-text-muted);
+}
+
+.docs-actions__buttons {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 840px) {
     .docs-layout {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -200,5 +273,15 @@ a:hover {
 
 .doc-table tr:nth-child(even) td {
     background: var(--color-table-stripe);
+}
+
+.docs-loading,
+.docs-error {
+    border: 1px dashed var(--color-bg-panel-border);
+    padding: var(--space-md);
+}
+
+.docs-error h2 {
+    color: var(--color-text);
 }
 

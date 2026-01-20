@@ -1,0 +1,23 @@
+<section id="presenter-window" class="ui-card">
+    <h2>Presenter window</h2>
+    <ul>
+        <li><strong>Slide preview</strong>: current slide image with a placeholder when no deck is loaded.</li>
+        <li><strong>Upload</strong>: opens the file picker for PDF or PPTX.</li>
+        <li><strong>Pause/Resume</strong>: toggles listening; pausing also resets matching context.</li>
+        <li><strong>Q&A toggle</strong>: switches between Presenting and Q&A modes (clears recent context).</li>
+        <li><strong>Slide counter</strong>: current slide index and total slides.</li>
+        <li><strong>Thumbnails</strong>: quick navigation and preview within the presenter view.</li>
+        <li><strong>Decision analytics</strong>: confidence, threshold, diff, and candidate bars.</li>
+        <li><strong>Intent-changing phrase</strong>: the phrase or keyword most influencing the decision.</li>
+        <li><strong>Incoming speech</strong>: partial transcription while speaking.</li>
+        <li><strong>Transcript</strong>: finalized text used for matching.</li>
+        <li><strong>Match stats</strong>: average confidence and matches counted per session.</li>
+    </ul>
+    <p class="ui-callout">
+        Thumbnail clicks update the preview. Actual transitions are driven by voice and matching decisions.
+    </p>
+    <p>
+        When a deck is loading, audio is paused and the transcript panel shows status updates. Once embeddings
+        finish, the app resumes listening automatically.
+    </p>
+</section>

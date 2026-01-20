@@ -1,0 +1,22 @@
+<section id="nuclear" class="ui-card">
+    <h2>Nuclear options</h2>
+    <div class="ui-callout ui-callout--warning">
+        <p>
+            These settings are for machines where real-time performance is not possible. They reduce accuracy
+            to keep the app responsive.
+        </p>
+    </div>
+    <ul>
+        <li><strong>Batch Audio Mode</strong>: processes audio in large intervals instead of streaming.</li>
+        <li><strong>Batch Interval (ms)</strong>: higher values reduce CPU at the cost of more delay.</li>
+        <li><strong>Keyword-only Matching</strong>: skips embeddings entirely and uses keyword overlap only.</li>
+    </ul>
+    <p>
+        Recommended order: first lower model sizes, then enable batch audio, then enable keyword-only matching
+        if necessary.
+    </p>
+    <p>
+        Keyword-only matching skips all embeddings and uses token overlap (with a small title bonus), which can
+        reduce intent detail and analytics richness.
+    </p>
+</section>

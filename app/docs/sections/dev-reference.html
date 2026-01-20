@@ -1,0 +1,33 @@
+<section id="dev-reference" class="ui-card">
+    <h2>Developer reference</h2>
+    <p>
+        Torgal is split into a UI layer (Electron) and a local ML backend (Python). The design is modular so
+        each subsystem can be adjusted independently.
+    </p>
+    <ul>
+        <li><strong>Electron main process</strong>: <code>app/main.js</code></li>
+        <li><strong>Presenter UI</strong>: <code>app/index.html</code>, <code>app/renderer.js</code></li>
+        <li><strong>Slideshow UI</strong>: <code>app/slideshow.html</code>, <code>app/slideshow.js</code></li>
+        <li><strong>Preload bridges</strong>: <code>app/preload.js</code>, <code>app/preload-prefs.js</code></li>
+        <li><strong>Preferences</strong>: <code>app/preferences.html</code>, <code>app/preferences.js</code>, <code>app/prefs-schema.js</code></li>
+        <li><strong>Settings store</strong>: <code>app/store.js</code></li>
+        <li><strong>Python server</strong>: <code>python/server.py</code></li>
+        <li><strong>Slide parsing</strong>: <code>python/parse_slides.py</code></li>
+        <li><strong>Matching logic</strong>: <code>python/slides.py</code></li>
+        <li><strong>Embedding loading</strong>: <code>python/embeddings.py</code></li>
+        <li><strong>Audio pipeline</strong>: <code>python/audio.py</code></li>
+        <li><strong>Runtime config</strong>: <code>python/config.py</code></li>
+    </ul>
+    <p>
+        The preferences UI is schema-driven. Add new settings in <code>app/prefs-schema.js</code>, then
+        reference them in <code>app/main.js</code> to pass values into the Python environment.
+    </p>
+    <div class="ui-callout ui-callout--info">
+        <p class="ui-text-sm ui-text-body ui-weight-semibold">Adding a new setting (quick steps)</p>
+        <ol class="ui-text-sm ui-text-body">
+            <li>Add the field to <code>app/prefs-schema.js</code> with default and help text.</li>
+            <li>Update <code>app/main.js</code> to pass it into the Python environment.</li>
+            <li>Read it in <code>python/config.py</code> via the TORGAL_ environment variables.</li>
+        </ol>
+    </div>
+</section>
