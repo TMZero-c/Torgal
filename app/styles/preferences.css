@@ -1,0 +1,218 @@
+/* Preferences Window Styles */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #1a1a1a;
+    color: #fff;
+    padding: 20px;
+    user-select: none;
+}
+
+h1 {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 15px;
+}
+
+h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 8px;
+}
+
+/* Sections */
+.section {
+    background: #333;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.section.warning {
+    border: 2px solid #f80;
+}
+
+.section.warning h2 {
+    color: #f80;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #aaa;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    background: #444;
+    color: #ddd;
+    font-size: 13px;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+    outline: 2px solid #D4953C;
+}
+
+input[type="checkbox"] {
+    margin-right: 8px;
+    accent-color: #D4953C;
+}
+
+.readonly-input {
+    background: #333;
+    cursor: default;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.inline-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.inline-group input {
+    flex: 1;
+}
+
+.help-text {
+    font-size: 10px;
+    color: #888;
+    margin-top: 2px;
+}
+
+.section-help {
+    font-size: 11px;
+    color: #aaa;
+    margin-bottom: 12px;
+}
+
+/* Buttons */
+button {
+    padding: 10px 16px;
+    border: none;
+    background: #D4953C;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+}
+
+button:hover {
+    background: #e5a84d;
+}
+
+button.secondary {
+    background: #444;
+}
+
+button.secondary:hover {
+    background: #555;
+}
+
+.button-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #444;
+}
+
+.tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: #888;
+    font-size: 12px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.tab:hover {
+    color: #ddd;
+}
+
+.tab.active {
+    color: #D4953C;
+    border-bottom-color: #D4953C;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Notices */
+.notice {
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.notice.warning {
+    background: #553;
+    color: #fa0;
+}
+
+.notice-detail {
+    color: #aaa;
+}
+
+/* Optgroups */
+optgroup {
+    background: #333;
+    color: #aaa;
+    font-style: normal;
+    font-size: 11px;
+}
+
+option {
+    background: #444;
+    color: #ddd;
+    padding: 4px;
+}
+
+/* Hidden elements */
+.hidden {
+    display: none !important;
+}

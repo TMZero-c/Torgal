@@ -41,11 +41,14 @@ from config import (
     PARTIAL_MATCH_STABLE_MS,
     PARTIAL_MATCH_COOLDOWN_MS,
     PARTIAL_MATCH_IGNORE_COOLDOWN,
+    BATCH_AUDIO_MODE,
+    BATCH_AUDIO_INTERVAL_MS,
+    KEYWORD_ONLY_MATCHING,
 )
 from logger import get_logger
 from runtime import setup_cuda_dlls
 from audio import Transcriber
-from slides import Slide, SlideMatcher, extract_hotwords
+from slides import Slide, SlideMatcher, KeywordMatcher, extract_hotwords
 from triggers import detect_trigger, TriggerAction
 
 log = get_logger("server")
@@ -307,12 +310,35 @@ def _maybe_partial_match(
 
 def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandState, speech_state: SpeechState):
     silent = bool(msg.get("silent"))
+    now = time.monotonic()
+    
+    # Batch audio mode: only process at intervals, not every chunk
+    if BATCH_AUDIO_MODE:
+        if not silent:
+            transcriber.add_audio(base64.b64decode(msg["data"]))
+        
+        # Check if enough time has passed since last batch process
+        interval_sec = BATCH_AUDIO_INTERVAL_MS / 1000.0
+        if now - speech_state.last_word_ts < interval_sec:
+            return  # Skip this chunk, wait for batch interval
+        
+        # Process the accumulated audio using batch method (no LocalAgreement)
+        words = transcriber.process_batch()
+        words = _normalize_words(words)
+        
+        if words:
+            log(f"BATCH: {' '.join(words)}")
+            send_type(IpcType.FINAL, text=" ".join(words))
+            speech_state.last_word_ts = now
+            _process_words(words, matcher, text_window, command_state)
+        return
+    
+    # Normal streaming mode
     if not silent:
         transcriber.add_audio(base64.b64decode(msg["data"]))
         confirmed, partial = transcriber.process()
     else:
         confirmed, partial = [], []
-    now = time.monotonic()
 
     confirmed = [w for w in confirmed if w and w.strip()]
     partial = [w for w in partial if w and w.strip()]
@@ -396,9 +422,15 @@ def handle_load_slides(msg, text_window, transcriber=None):
         hotwords = extract_hotwords(slides)
         transcriber.set_hotwords(hotwords)
     
-    matcher = SlideMatcher(slides=slides, qa_mode=QA_MODE_STATE)
+    # Use KeywordMatcher if keyword-only mode is enabled (no embeddings)
+    if KEYWORD_ONLY_MATCHING:
+        log("Using KeywordMatcher (no embeddings) - nuclear option enabled")
+        matcher = KeywordMatcher(slides=slides)
+    else:
+        matcher = SlideMatcher(slides=slides, qa_mode=QA_MODE_STATE)
+    
     text_window.clear()
-    log(f"SlideMatcher created with {len(slides)} slides")
+    log(f"Matcher created with {len(slides)} slides")
     log("Sending slides_ready to Electron")
     send_type(IpcType.SLIDES_READY, count=len(slides))
     return matcher

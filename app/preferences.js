@@ -1,143 +1,228 @@
 // Preferences window renderer script
+// Uses prefs-schema.js for schema-driven UI generation
+
 const $ = id => document.getElementById(id);
 
-// Default settings matching config.py and config.js
-const DEFAULTS = {
-    // Audio (from app/config.js)
-    audioSampleRate: 16000,
-    audioChunkSize: 1024,
-    silenceRmsThreshold: 0.01,
-    silenceSmoothing: 0.7,
-
-    // Audio buffer (from python/config.py)
-    audioBufferSeconds: 8,
-
-    // Matching (from python/config.py)
-    matchThreshold: 0.55,
-    matchCooldownWords: 4,
-    matchDiff: 0.09,
-    windowWords: 14,
-    stayBiasMargin: 0.02,
-    forwardBiasMargin: 0.06,
-    backBiasMargin: 0.02,
-
-    // Models
-    whisperModel: 'distil-large-v3.5',
-    whisperDevice: 'cuda',
-    whisperComputeType: 'float16',
-    whisperBeamSize: 1,
-    embeddingModel: 'BAAI/bge-base-en-v1.5',
-    embeddingDevice: 'auto',
-    sentenceEmbeddingsEnabled: true,
-
-    // Voice commands
-    triggerCooldownMs: 1500,
-    triggerTailWords: 6,
-
-    // Partial matching
-    partialFinalizeMs: 1000,
-    partialMatchMinWords: 5,
-    partialMatchEnabled: true,
-
-    // Q&A mode
-    qaWindowWords: 24,
-    qaMatchThreshold: 0.60,
-};
-
-// Map of form field IDs to their types
-const FIELD_TYPES = {
-    audioSampleRate: 'select',
-    audioChunkSize: 'select',
-    silenceRmsThreshold: 'number',
-    silenceSmoothing: 'number',
-    audioBufferSeconds: 'number',
-    matchThreshold: 'number',
-    matchCooldownWords: 'number',
-    matchDiff: 'number',
-    windowWords: 'number',
-    stayBiasMargin: 'number',
-    forwardBiasMargin: 'number',
-    backBiasMargin: 'number',
-    whisperModel: 'select',
-    whisperDevice: 'select',
-    whisperComputeType: 'select',
-    whisperBeamSize: 'select',
-    embeddingModel: 'select',
-    embeddingDevice: 'select',
-    sentenceEmbeddingsEnabled: 'checkbox',
-    triggerCooldownMs: 'number',
-    triggerTailWords: 'number',
-    partialFinalizeMs: 'number',
-    partialMatchMinWords: 'number',
-    partialMatchEnabled: 'checkbox',
-    qaWindowWords: 'number',
-    qaMatchThreshold: 'number',
-};
+// PREFS_SCHEMA, DEFAULTS, FIELD_TYPES are loaded from prefs-schema.js
 
 let currentSettings = {};
+let cudaAvailable = true;
 
-// Tab switching
-document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        tab.classList.add('active');
-        $(`tab-${tab.dataset.tab}`).classList.add('active');
+// =============================================================================
+// UI Generation
+// =============================================================================
+
+/**
+ * Generate the entire preferences UI from PREFS_SCHEMA
+ */
+function generateUI() {
+    const tabsContainer = $('tabs');
+    const contentContainer = $('tab-content');
+
+    let isFirst = true;
+    for (const [tabId, tab] of Object.entries(PREFS_SCHEMA)) {
+        // Create tab button
+        const tabBtn = document.createElement('div');
+        tabBtn.className = 'tab' + (isFirst ? ' active' : '');
+        tabBtn.dataset.tab = tabId;
+        tabBtn.textContent = tab.label;
+        tabsContainer.appendChild(tabBtn);
+
+        // Create tab content
+        const tabContent = document.createElement('div');
+        tabContent.id = `tab-${tabId}`;
+        tabContent.className = 'tab-content' + (isFirst ? ' active' : '');
+
+        // Add sections
+        for (const section of tab.sections) {
+            tabContent.appendChild(createSection(section));
+        }
+
+        contentContainer.appendChild(tabContent);
+        isFirst = false;
+    }
+
+    // Add button row
+    const buttonRow = document.createElement('div');
+    buttonRow.className = 'button-row';
+    buttonRow.innerHTML = `
+        <button id="cancelBtn" class="secondary">Cancel</button>
+        <button id="saveBtn">Save & Restart</button>
+    `;
+    contentContainer.appendChild(buttonRow);
+
+    // Attach tab click handlers
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            $(`tab-${tab.dataset.tab}`).classList.add('active');
+        });
     });
-});
+}
 
-// Load settings from main process
+/**
+ * Create a section element
+ */
+function createSection(section) {
+    // Handle custom sections
+    if (section.custom) {
+        return createCustomSection(section);
+    }
+
+    const sectionEl = document.createElement('div');
+    sectionEl.className = 'section' + (section.style === 'warning' ? ' warning' : '');
+
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = section.title;
+    sectionEl.appendChild(title);
+
+    // Section help text
+    if (section.help) {
+        const helpEl = document.createElement('div');
+        helpEl.className = 'section-help';
+        helpEl.textContent = section.help;
+        sectionEl.appendChild(helpEl);
+    }
+
+    // Fields
+    for (const field of section.fields) {
+        sectionEl.appendChild(createField(field));
+    }
+
+    return sectionEl;
+}
+
+/**
+ * Create a custom section (model cache, reset, etc.)
+ */
+function createCustomSection(section) {
+    const template = $(`template-${section.custom}`);
+    if (template) {
+        const clone = template.content.cloneNode(true);
+        // Return wrapper div if template has multiple children
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(clone);
+        return wrapper.firstElementChild || wrapper;
+    }
+
+    // Fallback: empty section
+    const sectionEl = document.createElement('div');
+    sectionEl.className = 'section';
+    sectionEl.innerHTML = `<h2>${section.title || section.custom}</h2><p>Template not found</p>`;
+    return sectionEl;
+}
+
+/**
+ * Create a form field element
+ */
+function createField(field) {
+    const group = document.createElement('div');
+    group.className = 'form-group';
+    group.dataset.fieldId = field.id;
+
+    if (field.type === 'checkbox') {
+        // Checkbox: label wraps input
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.id = field.id;
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(' ' + field.label));
+        group.appendChild(label);
+    } else {
+        // Label above input
+        const label = document.createElement('label');
+        label.setAttribute('for', field.id);
+        label.textContent = field.label;
+        group.appendChild(label);
+
+        if (field.type === 'select') {
+            group.appendChild(createSelect(field));
+        } else if (field.type === 'number') {
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.id = field.id;
+            if (field.min !== undefined) input.min = field.min;
+            if (field.max !== undefined) input.max = field.max;
+            if (field.step !== undefined) input.step = field.step;
+            group.appendChild(input);
+        } else {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = field.id;
+            group.appendChild(input);
+        }
+    }
+
+    // Help text
+    if (field.help) {
+        const helpEl = document.createElement('div');
+        helpEl.className = 'help-text';
+        helpEl.textContent = field.help;
+        group.appendChild(helpEl);
+    }
+
+    return group;
+}
+
+/**
+ * Create a select element with options or optgroups
+ */
+function createSelect(field) {
+    const select = document.createElement('select');
+    select.id = field.id;
+
+    if (field.optgroups) {
+        // Has option groups
+        for (const group of field.optgroups) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = group.label;
+            for (const opt of group.options) {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                if (opt.gpuOnly) option.dataset.gpuOnly = 'true';
+                optgroup.appendChild(option);
+            }
+            select.appendChild(optgroup);
+        }
+    } else if (field.options) {
+        // Flat options
+        for (const opt of field.options) {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            if (opt.gpuOnly) option.dataset.gpuOnly = 'true';
+            select.appendChild(option);
+        }
+    }
+
+    // Mark entire select as having GPU-only options
+    if (field.gpuOnly) {
+        select.dataset.gpuOnlyValues = JSON.stringify(field.gpuOnly);
+    }
+
+    return select;
+}
+
+// =============================================================================
+// Settings Loading/Saving
+// =============================================================================
+
+/**
+ * Load settings from main process and populate form
+ */
 async function loadSettings() {
     currentSettings = await window.prefsApi.getSettings();
-    const cudaAvailable = await window.prefsApi.getCudaAvailable();
+    cudaAvailable = await window.prefsApi.getCudaAvailable();
 
-    // Hide GPU options if CUDA is not available
+    // Handle GPU options visibility
     if (!cudaAvailable) {
-        // Hide CUDA options in Whisper device dropdown
-        const whisperDevice = $('whisperDevice');
-        if (whisperDevice) {
-            const cudaOption = whisperDevice.querySelector('option[value="cuda"]');
-            if (cudaOption) cudaOption.style.display = 'none';
-            // Force CPU if currently set to cuda
-            if (currentSettings.whisperDevice === 'cuda') {
-                currentSettings.whisperDevice = 'cpu';
-            }
-        }
-
-        // Hide GPU compute types
-        const whisperComputeType = $('whisperComputeType');
-        if (whisperComputeType) {
-            whisperComputeType.querySelectorAll('option').forEach(opt => {
-                if (opt.value === 'float16' || opt.value === 'int8_float16') {
-                    opt.style.display = 'none';
-                }
-            });
-            // Force int8 if currently set to GPU type
-            if (['float16', 'int8_float16'].includes(currentSettings.whisperComputeType)) {
-                currentSettings.whisperComputeType = 'int8';
-            }
-        }
-
-        // Hide CUDA option in embedding device dropdown
-        const embeddingDevice = $('embeddingDevice');
-        if (embeddingDevice) {
-            const cudaOption = embeddingDevice.querySelector('option[value="cuda"]');
-            if (cudaOption) cudaOption.style.display = 'none';
-            // Force auto or cpu if currently set to cuda
-            if (currentSettings.embeddingDevice === 'cuda') {
-                currentSettings.embeddingDevice = 'cpu';
-            }
-        }
-
-        // Add a note about GPU not being available
-        const modelsTab = $('tab-models');
-        if (modelsTab && !$('no-cuda-notice')) {
-            const notice = document.createElement('div');
-            notice.id = 'no-cuda-notice';
-            notice.style.cssText = 'background: #553; padding: 10px; margin-bottom: 15px; color: #fa0; font-size: 12px;';
-            notice.textContent = '⚠ CUDA not available. GPU options are hidden. Install NVIDIA GPU drivers for GPU acceleration.';
-            modelsTab.insertBefore(notice, modelsTab.firstChild);
-        }
+        hideGpuOptions();
+        showNoCudaNotice();
     }
 
     // Populate form fields
@@ -157,10 +242,61 @@ async function loadSettings() {
 
     // Model cache path
     const cachePath = await window.prefsApi.getModelCachePath();
-    $('modelCachePath').value = cachePath;
+    const cachePathEl = $('modelCachePath');
+    if (cachePathEl) cachePathEl.value = cachePath;
 }
 
-// Collect form values
+/**
+ * Hide GPU-only options when CUDA is not available
+ */
+function hideGpuOptions() {
+    // Hide individual options marked as GPU-only
+    document.querySelectorAll('option[data-gpu-only="true"]').forEach(opt => {
+        opt.style.display = 'none';
+    });
+
+    // Handle selects with gpuOnly values array
+    document.querySelectorAll('select[data-gpu-only-values]').forEach(select => {
+        const gpuOnlyValues = JSON.parse(select.dataset.gpuOnlyValues);
+        select.querySelectorAll('option').forEach(opt => {
+            if (gpuOnlyValues.includes(opt.value)) {
+                opt.style.display = 'none';
+            }
+        });
+    });
+
+    // Fix current values that are GPU-only
+    const whisperDevice = $('whisperDevice');
+    if (whisperDevice && currentSettings.whisperDevice === 'cuda') {
+        currentSettings.whisperDevice = 'cpu';
+    }
+
+    const whisperComputeType = $('whisperComputeType');
+    if (whisperComputeType && ['float16', 'int8_float16'].includes(currentSettings.whisperComputeType)) {
+        currentSettings.whisperComputeType = 'int8';
+    }
+
+    const embeddingDevice = $('embeddingDevice');
+    if (embeddingDevice && currentSettings.embeddingDevice === 'cuda') {
+        currentSettings.embeddingDevice = 'cpu';
+    }
+}
+
+/**
+ * Show the no-CUDA notice in the models tab
+ */
+function showNoCudaNotice() {
+    const modelsTab = $('tab-models');
+    const template = $('template-no-cuda-notice');
+    if (modelsTab && template && !$('no-cuda-notice')) {
+        const notice = template.content.cloneNode(true);
+        modelsTab.insertBefore(notice, modelsTab.firstChild);
+    }
+}
+
+/**
+ * Collect form values into settings object
+ */
 function collectFormValues() {
     const settings = {};
     for (const [key, type] of Object.entries(FIELD_TYPES)) {
@@ -180,42 +316,64 @@ function collectFormValues() {
     return settings;
 }
 
-// Save button
-$('saveBtn').addEventListener('click', async () => {
-    const settings = collectFormValues();
-    await window.prefsApi.saveSettings(settings);
-    window.prefsApi.restartApp();
-});
+// =============================================================================
+// Event Handlers
+// =============================================================================
 
-// Cancel button
-$('cancelBtn').addEventListener('click', () => {
-    window.close();
-});
-
-// Reset defaults
-$('resetDefaults').addEventListener('click', async () => {
-    if (confirm('Reset all settings to defaults? This will restart the app.')) {
-        await window.prefsApi.saveSettings(DEFAULTS);
+function attachEventHandlers() {
+    // Save button
+    $('saveBtn').addEventListener('click', async () => {
+        const settings = collectFormValues();
+        await window.prefsApi.saveSettings(settings);
         window.prefsApi.restartApp();
+    });
+
+    // Cancel button
+    $('cancelBtn').addEventListener('click', () => {
+        window.close();
+    });
+
+    // Reset defaults
+    const resetBtn = $('resetDefaults');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+            if (confirm('Reset all settings to defaults? This will restart the app.')) {
+                await window.prefsApi.saveSettings(DEFAULTS);
+                window.prefsApi.restartApp();
+            }
+        });
     }
-});
 
-// Open cache folder
-$('openCacheFolder').addEventListener('click', async () => {
-    await window.prefsApi.openCacheFolder();
-});
-
-// Clear cache
-$('clearCache').addEventListener('click', async () => {
-    if (confirm('This will delete all downloaded models. They will be re-downloaded on next startup. Continue?')) {
-        const result = await window.prefsApi.clearCache();
-        if (result.success) {
-            alert(`Cleared ${result.freedMB} MB of cached models.`);
-        } else {
-            alert('Failed to clear cache: ' + result.error);
-        }
+    // Open cache folder
+    const openCacheFolderBtn = $('openCacheFolder');
+    if (openCacheFolderBtn) {
+        openCacheFolderBtn.addEventListener('click', async () => {
+            await window.prefsApi.openCacheFolder();
+        });
     }
-});
 
+    // Clear cache
+    const clearCacheBtn = $('clearCache');
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', async () => {
+            if (confirm('This will delete all downloaded models. They will be re-downloaded on next startup. Continue?')) {
+                const result = await window.prefsApi.clearCache();
+                if (result.success) {
+                    alert(`Cleared ${result.freedMB} MB of cached models.`);
+                } else {
+                    alert('Failed to clear cache: ' + result.error);
+                }
+            }
+        });
+    }
+}
+
+// =============================================================================
 // Initialize
-loadSettings();
+// =============================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    generateUI();
+    attachEventHandlers();
+    loadSettings();
+});

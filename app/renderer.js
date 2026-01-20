@@ -372,9 +372,9 @@ function bindUi() {
         qaModeToggle.onchange = () => {
             const isQaMode = qaModeToggle.checked;
             const modeText = $('mode-text');
-            if (modeText) modeText.textContent = isQaMode ? 'Q&A' : 'Regular';
+            if (modeText) modeText.textContent = isQaMode ? 'Q&A' : 'Presenting';
 
-            log('MODE', `Switched to ${isQaMode ? 'Q&A' : 'Regular'} mode`);
+            log('MODE', `Switched to ${isQaMode ? 'Q&A' : 'Presenting'} mode`);
             window.api.setQaMode(isQaMode);
         };
     }

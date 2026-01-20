@@ -6,453 +6,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="script-src 'self'; style-src 'self' 'unsafe-inline';">
     <title>Preferences</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #1a1a1a;
-            color: #fff;
-            padding: 20px;
-            user-select: none;
-        }
-
-        h1 {
-            font-size: 12px;
-            text-transform: uppercase;
-            color: #999;
-            margin-bottom: 15px;
-        }
-
-        h2 {
-            font-size: 12px;
-            text-transform: uppercase;
-            color: #999;
-            margin-bottom: 8px;
-        }
-
-        .section {
-            background: #333;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-group:last-child {
-            margin-bottom: 0;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 12px;
-            color: #aaa;
-        }
-
-        input[type="text"],
-        input[type="number"],
-        select {
-            width: 100%;
-            padding: 8px 10px;
-            border: none;
-            background: #444;
-            color: #ddd;
-            font-size: 13px;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        select:focus {
-            outline: 2px solid #D4953C;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 10px;
-        }
-
-        .form-row .form-group {
-            flex: 1;
-        }
-
-        .help-text {
-            font-size: 10px;
-            color: #888;
-            margin-top: 2px;
-        }
-
-        .button-row {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        button {
-            padding: 10px 16px;
-            border: none;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            background: #D4953C;
-            color: #fff;
-        }
-
-        button:hover {
-            background: #E5E0D8;
-        }
-
-        button:disabled {
-            cursor: not-allowed;
-            opacity: 0.6;
-            background: #b07b3d;
-        }
-
-        button.secondary {
-            background: #444;
-            color: #ddd;
-        }
-
-        button.secondary:hover {
-            background: #555;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 0;
-            margin-bottom: 15px;
-            background: #333;
-        }
-
-        .tab {
-            padding: 10px 16px;
-            cursor: pointer;
-            color: #888;
-            font-size: 12px;
-            font-weight: 500;
-            border-bottom: 2px solid transparent;
-        }
-
-        .tab:hover {
-            color: #ddd;
-        }
-
-        .tab.active {
-            color: #D4953C;
-            border-bottom-color: #D4953C;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .model-list {
-            max-height: 200px;
-            overflow-y: auto;
-            background: #444;
-        }
-
-        .model-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 12px;
-            border-bottom: 1px solid #555;
-        }
-
-        .model-item:last-child {
-            border-bottom: none;
-        }
-
-        .model-info {
-            flex: 1;
-        }
-
-        .model-name {
-            font-weight: 500;
-            color: #ddd;
-        }
-
-        .model-size {
-            font-size: 11px;
-            color: #888;
-        }
-
-        .model-status {
-            font-size: 10px;
-            padding: 2px 6px;
-            margin-left: 10px;
-        }
-
-        .model-status.active {
-            background: #D4953C;
-            color: #fff;
-        }
-
-        .model-status.available {
-            background: #555;
-            color: #888;
-        }
-
-        .model-actions {
-            display: flex;
-            gap: 6px;
-        }
-
-        .model-actions button {
-            padding: 4px 10px;
-            font-size: 11px;
-        }
-
-        .progress-bar {
-            height: 4px;
-            background: #555;
-            overflow: hidden;
-            margin-top: 6px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #D4953C;
-            width: 0%;
-            transition: width 0.3s;
-        }
-
-        .download-status {
-            font-size: 10px;
-            color: #888;
-            margin-top: 4px;
-        }
-    </style>
+    <link rel="stylesheet" href="styles/preferences.css">
 </head>
 
 <body>
     <h1>Preferences</h1>
 
-    <div class="tabs">
-        <div class="tab active" data-tab="audio">Audio</div>
-        <div class="tab" data-tab="matching">Matching</div>
-        <div class="tab" data-tab="models">Models</div>
-        <div class="tab" data-tab="advanced">Advanced</div>
-    </div>
+    <!-- Tabs (generated dynamically) -->
+    <div class="tabs" id="tabs"></div>
 
-    <!-- Audio Settings Tab -->
-    <div class="tab-content active" id="tab-audio">
-        <div class="section">
-            <h2>Audio Capture</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="audioSampleRate">Sample Rate (Hz)</label>
-                    <select id="audioSampleRate">
-                        <option value="16000">16000 (Recommended)</option>
-                        <option value="22050">22050</option>
-                        <option value="44100">44100</option>
-                        <option value="48000">48000</option>
-                    </select>
-                    <div class="help-text">Must match Python server sample rate</div>
-                </div>
-                <div class="form-group">
-                    <label for="audioChunkSize">Chunk Size</label>
-                    <select id="audioChunkSize">
-                        <option value="512">512 (Lower latency)</option>
-                        <option value="1024">1024</option>
-                        <option value="2048">2048 (Balanced)</option>
-                        <option value="4096">4096 (Lower CPU)</option>
-                    </select>
-                </div>
-            </div>
+    <!-- Tab content containers (generated dynamically) -->
+    <div id="tab-content"></div>
+
+    <!-- Templates for custom sections (IDs match schema custom values) -->
+    
+    <!-- No CUDA notice (shown dynamically when CUDA unavailable) -->
+    <template id="template-no-cuda-notice">
+        <div class="notice warning" id="no-cuda-notice">
+            ⚠ <strong>CUDA not available.</strong> GPU options are hidden.<br>
+            <span class="notice-detail">GPU acceleration requires an NVIDIA GPU with CUDA drivers. AMD and Intel GPUs are not supported.</span>
         </div>
+    </template>
 
-        <div class="section">
-            <h2>Silence Detection</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="silenceRmsThreshold">RMS Threshold</label>
-                    <input type="number" id="silenceRmsThreshold" step="0.001" min="0" max="1">
-                    <div class="help-text">Lower = more sensitive (0.005 - 0.05)</div>
-                </div>
-                <div class="form-group">
-                    <label for="silenceSmoothing">Smoothing Factor</label>
-                    <input type="number" id="silenceSmoothing" step="0.1" min="0" max="1">
-                    <div class="help-text">Higher = smoother transitions (0.5 - 0.9)</div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="audioBufferSeconds">Audio Buffer (seconds)</label>
-                <input type="number" id="audioBufferSeconds" min="2" max="30" step="1">
-                <div class="help-text">Longer = more context, but higher latency</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Matching Settings Tab -->
-    <div class="tab-content" id="tab-matching">
-        <div class="section">
-            <h2>Slide Matching</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="matchThreshold">Match Threshold</label>
-                    <input type="number" id="matchThreshold" step="0.01" min="0" max="1">
-                    <div class="help-text">Higher = fewer transitions (0.4 - 0.7)</div>
-                </div>
-                <div class="form-group">
-                    <label for="matchDiff">Required Difference</label>
-                    <input type="number" id="matchDiff" step="0.01" min="0" max="0.5">
-                    <div class="help-text">Gap needed vs current slide</div>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="matchCooldownWords">Cooldown Words</label>
-                    <input type="number" id="matchCooldownWords" min="1" max="20" step="1">
-                    <div class="help-text">Min words between transitions</div>
-                </div>
-                <div class="form-group">
-                    <label for="windowWords">Window Size (words)</label>
-                    <input type="number" id="windowWords" min="5" max="50" step="1">
-                    <div class="help-text">Words to consider for matching</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Bias Settings</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="forwardBiasMargin">Forward Bias</label>
-                    <input type="number" id="forwardBiasMargin" step="0.01" min="0" max="0.3">
-                    <div class="help-text">Eagerness to advance slides</div>
-                </div>
-                <div class="form-group">
-                    <label for="backBiasMargin">Back Bias</label>
-                    <input type="number" id="backBiasMargin" step="0.01" min="0" max="0.3">
-                    <div class="help-text">Willingness to go back</div>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="stayBiasMargin">Stay Bias Margin</label>
-                <input type="number" id="stayBiasMargin" step="0.01" min="0" max="0.2">
-                <div class="help-text">Extra difference needed to leave current slide</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Models Tab -->
-    <div class="tab-content" id="tab-models">
-        <div class="section">
-            <h2>Whisper Model (Speech Recognition)</h2>
-            <div class="form-group">
-                <label for="whisperModel">Active Model</label>
-                <select id="whisperModel">
-                    <optgroup label="English-only (faster, smaller)">
-                        <option value="tiny.en">tiny.en (~75 MB) - Fastest, low accuracy</option>
-                        <option value="base.en">base.en (~140 MB) - Fast, basic accuracy</option>
-                        <option value="small.en">small.en (~470 MB) - Balanced</option>
-                        <option value="medium.en">medium.en (~1.5 GB) - Good accuracy</option>
-                    </optgroup>
-                    <optgroup label="Multilingual">
-                        <option value="tiny">tiny (~75 MB) - Fastest, low accuracy</option>
-                        <option value="base">base (~140 MB) - Fast, basic accuracy</option>
-                        <option value="small">small (~470 MB) - Balanced</option>
-                        <option value="medium">medium (~1.5 GB) - Good accuracy</option>
-                        <option value="large-v2">large-v2 (~3 GB) - High accuracy</option>
-                        <option value="large-v3">large-v3 (~3 GB) - Best accuracy</option>
-                    </optgroup>
-                    <optgroup label="Distilled (recommended)">
-                        <option value="distil-small.en">distil-small.en (~330 MB) - Fast + good accuracy</option>
-                        <option value="distil-medium.en">distil-medium.en (~750 MB) - Balanced</option>
-                        <option value="distil-large-v2">distil-large-v2 (~750 MB) - Fast + high accuracy</option>
-                        <option value="distil-large-v3">distil-large-v3 (~750 MB) - Latest distilled</option>
-                        <option value="distil-large-v3.5">distil-large-v3.5 (~800 MB) - Best distilled ★</option>
-                    </optgroup>
-                </select>
-                <div class="help-text">Distilled models offer best speed/accuracy tradeoff. English-only (.en) models are faster for English.</div>
-            </div>
-            <div class="form-group">
-                <label for="whisperBeamSize">Beam Size</label>
-                <select id="whisperBeamSize">
-                    <option value="1">1 - Fastest (greedy)</option>
-                    <option value="2">2 - Fast + slightly better</option>
-                    <option value="3">3 - Balanced</option>
-                    <option value="5">5 - More accurate, slower</option>
-                </select>
-                <div class="help-text">Higher beam size improves accuracy for small models, but slows down inference</div>
-            </div>
-            <div class="form-group">
-                <label for="whisperDevice">Compute Device</label>
-                <select id="whisperDevice">
-                    <option value="cuda">CUDA (NVIDIA GPU) - Recommended</option>
-                    <option value="cpu">CPU - Slower, works everywhere</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="whisperComputeType">Compute Type</label>
-                <select id="whisperComputeType">
-                    <option value="float16">float16 - GPU default, fast</option>
-                    <option value="int8_float16">int8_float16 - GPU, faster, slightly less accurate</option>
-                    <option value="float32">float32 - Most accurate, slowest</option>
-                    <option value="int8">int8 - CPU optimized, memory efficient</option>
-                </select>
-                <div class="help-text">Use int8 for CPU, float16 for GPU</div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Embedding Model (Semantic Matching)</h2>
-            <div class="form-group">
-                <label for="embeddingModel">Model</label>
-                <select id="embeddingModel">
-                    <optgroup label="Fast (recommended for CPU)">
-                        <option value="sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2 (~90 MB) - Fastest</option>
-                        <option value="sentence-transformers/paraphrase-MiniLM-L3-v2">paraphrase-MiniLM-L3-v2 (~60 MB) - Tiny, fast</option>
-                    </optgroup>
-                    <optgroup label="Balanced">
-                        <option value="BAAI/bge-small-en-v1.5">bge-small-en (~130 MB) - Good quality</option>
-                        <option value="sentence-transformers/all-mpnet-base-v2">all-mpnet-base-v2 (~420 MB) - High quality</option>
-                    </optgroup>
-                    <optgroup label="High Quality (GPU recommended)">
-                        <option value="BAAI/bge-base-en-v1.5">bge-base-en (~440 MB) - Very good ★</option>
-                        <option value="BAAI/bge-large-en-v1.5">bge-large-en (~1.3 GB) - Best quality</option>
-                    </optgroup>
-                </select>
-                <div class="help-text">Larger = better semantic matching, more memory. Use MiniLM for CPU.</div>
-            </div>
-            <div class="form-group">
-                <label for="embeddingDevice">Compute Device</label>
-                <select id="embeddingDevice">
-                    <option value="auto">Auto (use GPU if available)</option>
-                    <option value="cuda">CUDA (NVIDIA GPU)</option>
-                    <option value="cpu">CPU</option>
-                </select>
-                <div class="help-text">GPU dramatically speeds up embedding computation</div>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="sentenceEmbeddingsEnabled">
-                    Enable sentence embeddings
-                </label>
-                <div class="help-text">More accurate for bullet points, higher CPU/GPU usage</div>
-            </div>
-        </div>
-
+    <!-- Model cache section (custom: 'modelCache') -->
+    <template id="template-modelCache">
         <div class="section">
             <h2>Model Cache</h2>
             <div class="form-group">
                 <label>Cache Location</label>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="text" id="modelCachePath" readonly style="flex: 1; background: #444;">
+                <div class="inline-group">
+                    <input type="text" id="modelCachePath" readonly class="readonly-input">
                     <button class="secondary" id="openCacheFolder">Open Folder</button>
                 </div>
                 <div class="help-text">Models are downloaded here automatically on first use</div>
@@ -462,70 +45,17 @@
                 <div class="help-text">Free up disk space by removing cached models (will re-download on next use)</div>
             </div>
         </div>
-    </div>
+    </template>
 
-    <!-- Advanced Tab -->
-    <div class="tab-content" id="tab-advanced">
-        <div class="section">
-            <h2>Voice Commands</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="triggerCooldownMs">Command Cooldown (ms)</label>
-                    <input type="number" id="triggerCooldownMs" min="500" max="5000" step="100">
-                </div>
-                <div class="form-group">
-                    <label for="triggerTailWords">Tail Words to Check</label>
-                    <input type="number" id="triggerTailWords" min="2" max="20" step="1">
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Partial Matching</h2>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="partialMatchEnabled">
-                    Enable partial matching
-                </label>
-                <div class="help-text">Improves responsiveness while speaking, adds CPU load</div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="partialFinalizeMs">Finalize After Silence (ms)</label>
-                    <input type="number" id="partialFinalizeMs" min="500" max="3000" step="100">
-                </div>
-                <div class="form-group">
-                    <label for="partialMatchMinWords">Min Words for Partial Match</label>
-                    <input type="number" id="partialMatchMinWords" min="2" max="15" step="1">
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>Q&A Mode Overrides</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="qaWindowWords">Q&A Window Words</label>
-                    <input type="number" id="qaWindowWords" min="10" max="60" step="1">
-                </div>
-                <div class="form-group">
-                    <label for="qaMatchThreshold">Q&A Match Threshold</label>
-                    <input type="number" id="qaMatchThreshold" step="0.01" min="0" max="1">
-                </div>
-            </div>
-        </div>
-
+    <!-- Reset section (custom: 'resetDefaults') -->
+    <template id="template-resetDefaults">
         <div class="section">
             <h2>Reset</h2>
             <button class="secondary" id="resetDefaults">Reset All to Defaults</button>
         </div>
-    </div>
+    </template>
 
-    <div class="button-row">
-        <button class="secondary" id="cancelBtn">Cancel</button>
-        <button id="saveBtn">Save & Restart</button>
-    </div>
-
+    <script src="prefs-schema.js"></script>
     <script src="preferences.js"></script>
 </body>
 

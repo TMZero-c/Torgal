@@ -605,3 +605,122 @@ class SlideMatcher:
         self.diff = effective_diff
 
         log(f"QA mode updated: qa_mode={self.qa_mode}, threshold={self.threshold}, diff={self.diff}")
+
+
+class KeywordMatcher:
+    """Lightweight matcher using only keyword overlap - no embeddings.
+    
+    This is a 'nuclear option' for extremely slow systems where even
+    sentence embeddings are too expensive. Uses pure keyword matching
+    based on token overlap between speech and slide content.
+    """
+
+    def __init__(
+        self,
+        slides: List[Slide],
+        threshold: float = 0.3,
+        cooldown: int = MATCH_COOLDOWN_WORDS,
+        forward_bias: float = 0.15,
+        back_bias: float = 0.05,
+    ):
+        log(f"Creating KeywordMatcher with {len(slides)} slides (NO EMBEDDINGS)")
+        if not slides:
+            raise ValueError("slides list is required")
+
+        self.slides = slides
+        self.threshold = threshold
+        self.cooldown = cooldown
+        self.forward_bias = forward_bias
+        self.back_bias = back_bias
+        self.current = 0
+        self.words_since = 0
+        self.qa_mode = False
+
+        # Pre-tokenize all slides
+        self._slide_tokens = [s.tokens for s in slides]
+        self._title_tokens = [s.title_tokens for s in slides]
+
+        log(f"KeywordMatcher ready with {len(slides)} slides")
+
+    def check(self, text: str, ignore_cooldown: bool = False) -> Optional[dict]:
+        """Check if text matches a different slide based on keyword overlap."""
+        text = (text or "").strip()
+        if not text:
+            return None
+
+        if not ignore_cooldown and self.words_since < self.cooldown:
+            return None
+
+        speech_tokens = _tokenize(text)
+        if not speech_tokens:
+            return None
+
+        # Calculate overlap scores for all slides
+        scores = []
+        for i, (slide_tokens, title_tokens) in enumerate(zip(self._slide_tokens, self._title_tokens)):
+            # Jaccard-style overlap: intersection / union
+            if not slide_tokens:
+                scores.append(0.0)
+                continue
+
+            overlap = len(speech_tokens & slide_tokens)
+            union = len(speech_tokens | slide_tokens)
+            score = overlap / union if union > 0 else 0.0
+
+            # Title bonus
+            title_overlap = len(speech_tokens & title_tokens)
+            if title_overlap >= 2:
+                score += 0.15
+
+            scores.append(score)
+
+        # Apply adjacency biases
+        if self.current > 0:
+            scores[self.current - 1] += self.back_bias
+        if self.current < len(scores) - 1:
+            scores[self.current + 1] += self.forward_bias
+
+        # Find best match
+        best_idx = int(np.argmax(scores))
+        best_score = scores[best_idx]
+        current_score = scores[self.current]
+
+        log(f"Keyword match: best={best_idx}@{best_score:.3f}, current={self.current}@{current_score:.3f}")
+
+        # Must exceed threshold and beat current slide significantly
+        if best_score < self.threshold:
+            return None
+        if best_idx == self.current:
+            return None
+        if best_score <= current_score + 0.05:
+            return None
+
+        # Transition!
+        old = self.current
+        self.current = best_idx
+        self.words_since = 0
+
+        log(f"KEYWORD TRANSITION: {old} → {best_idx}")
+
+        return {
+            "from": old,
+            "to": best_idx,
+            "score": float(best_score),
+            "method": "keyword",
+        }
+
+    def add_words(self, n: int) -> None:
+        self.words_since += n
+
+    def goto(self, index: int) -> None:
+        if 0 <= index < len(self.slides):
+            self.current = index
+            self.words_since = 0
+
+    def reset(self) -> None:
+        self.current = 0
+        self.words_since = 0
+
+    def set_qa_mode(self, qa_mode: bool) -> None:
+        self.qa_mode = bool(qa_mode)
+        log(f"KeywordMatcher QA mode updated: {self.qa_mode}")

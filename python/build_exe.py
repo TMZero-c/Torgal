@@ -13,6 +13,8 @@ import sys
 import argparse
 import os
 import shutil
+from importlib.util import find_spec
+from pathlib import Path
 
 # Packages to exclude for smaller builds
 # IMPORTANT: Keep this minimal - aggressive excludes break the app
@@ -33,6 +35,37 @@ EXCLUDE_PACKAGES = [
 # For CPU builds, we don't exclude CUDA modules - the CPU PyTorch just doesn't have them
 # The size savings come from using CPU-only PyTorch, not from excludes
 CUDA_EXCLUDES = []
+
+NAMESPACE_BIN_EXTS = {'.dll', '.so', '.dylib'}
+
+
+def collect_namespace_binary_opts(module_name):
+    """Collect native libs from namespace-style packages (e.g., NVIDIA CUDA wheels)."""
+    spec = find_spec(module_name)
+    if spec is None or spec.submodule_search_locations is None:
+        return []
+
+    opts = []
+    seen = set()
+    dest_base = module_name.replace('.', os.sep)
+    for loc in spec.submodule_search_locations:
+        loc_path = Path(loc)
+        if not loc_path.exists():
+            continue
+
+        for bin_file in loc_path.rglob('*'):
+            if bin_file.suffix.lower() not in NAMESPACE_BIN_EXTS:
+                continue
+
+            rel_parent = bin_file.parent.relative_to(loc_path)
+            dest = dest_base if str(rel_parent) == '.' else os.path.join(dest_base, str(rel_parent))
+            key = (str(bin_file), dest)
+            if key in seen:
+                continue
+            seen.add(key)
+            opts.append(f'--add-binary={bin_file};{dest}')
+
+    return opts
 
 def get_folder_size(folder):
     """Get total size of a folder in bytes."""
@@ -75,9 +108,9 @@ def build_variant(variant='cpu'):
         gpu_opts = [
             '--collect-binaries=torch',
             '--collect-binaries=ctranslate2',
-            '--collect-all=nvidia.cublas',
-            '--collect-all=nvidia.cuda_runtime',
-            '--collect-all=nvidia.cudnn',
+            *collect_namespace_binary_opts('nvidia.cublas'),
+            *collect_namespace_binary_opts('nvidia.cuda_runtime'),
+            *collect_namespace_binary_opts('nvidia.cudnn'),
         ]
     
     # Build server.exe

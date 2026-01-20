@@ -15,6 +15,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
+$PackageJsonPath = Join-Path $ProjectRoot "app\package.json"
+$DefaultPackageConfig = Get-Content $PackageJsonPath -Raw | ConvertFrom-Json
+$DefaultExtraResource = $DefaultPackageConfig.config.forge.packagerConfig.extraResource
+$DefaultMakers = $DefaultPackageConfig.config.forge.makers
 
 Write-Host ("=" * 60) -ForegroundColor Cyan
 Write-Host "  Torgal Build Script" -ForegroundColor Cyan
@@ -79,10 +83,11 @@ function Build-PythonExe {
     
     Push-Location (Join-Path $ProjectRoot "python")
     
-    if ($BuildVariant -eq "gpu") {
-        python build_exe.py --gpu
+    if ($BuildVariant -eq "cpu") {
+        python build_exe.py --cpu
     }
     else {
+        # GPU is the default
         python build_exe.py
     }
     
@@ -111,13 +116,18 @@ function Build-ElectronApp {
     }
     
     # Update package.json to point to correct variant
-    $PackageJson = Join-Path $ProjectRoot "app\package.json"
-    $Config = Get-Content $PackageJson -Raw | ConvertFrom-Json
+    $Config = $DefaultPackageConfig | ConvertTo-Json -Depth 10 | ConvertFrom-Json
     $Config.config.forge.packagerConfig.extraResource = @(
         "../python/dist/$BuildVariant/server.exe",
         "../python/dist/$BuildVariant/parse_slides.exe"
     )
-    $Config | ConvertTo-Json -Depth 10 | Set-Content $PackageJson -Encoding UTF8
+    if ($BuildVariant -eq "gpu") {
+        # Squirrel often fails for very large GPU builds; use zip maker only
+        $Config.config.forge.makers = @(
+            $DefaultMakers | Where-Object { $_.name -eq "@electron-forge/maker-zip" }
+        )
+    }
+    $Config | ConvertTo-Json -Depth 10 | Set-Content $PackageJsonPath -Encoding UTF8
     
     # Clean up previous build artifacts
     $OutDir = Join-Path $ProjectRoot "app\out"
@@ -131,6 +141,13 @@ function Build-ElectronApp {
         Remove-Item $OutUnpacked -Recurse -Force
     }
     
+    # Ensure Squirrel temp files go to a roomy location
+    $TempDir = Join-Path $ProjectRoot ".tmp\squirrel"
+    New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
+    $env:TEMP = $TempDir
+    $env:TMP = $TempDir
+    $env:SQUIRREL_TEMP = $TempDir
+
     # Run electron-forge make
     Push-Location (Join-Path $ProjectRoot "app")
     npm run make
@@ -215,12 +232,12 @@ else {
 }
 
 # Restore package.json to default (cpu)
-$PackageJson = Join-Path $ProjectRoot "app\package.json"
-$Config = Get-Content $PackageJson -Raw | ConvertFrom-Json
+$Config = $DefaultPackageConfig | ConvertTo-Json -Depth 10 | ConvertFrom-Json
 $Config.config.forge.packagerConfig.extraResource = @(
     "../python/dist/cpu/server.exe",
     "../python/dist/cpu/parse_slides.exe"
 )
-$Config | ConvertTo-Json -Depth 10 | Set-Content $PackageJson -Encoding UTF8
+$Config.config.forge.makers = $DefaultMakers
+$Config | ConvertTo-Json -Depth 10 | Set-Content $PackageJsonPath -Encoding UTF8
 
 Write-Host "`n✅ Done!" -ForegroundColor Green

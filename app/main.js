@@ -4,6 +4,12 @@ const path = require('path');
 const fs = require('fs');
 const Store = require('./store');
 
+// Handle Squirrel events for Windows installer (must be at very top)
+// This handles install/uninstall/update shortcuts and must quit immediately
+if (require('electron-squirrel-startup')) {
+  process.exit(0);
+}
+
 const projectRoot = path.join(__dirname, '..');
 
 // Initialize settings store with defaults
@@ -31,9 +37,16 @@ const store = new Store({
     whisperDevice: 'cuda',
     whisperComputeType: 'float16',
     whisperBeamSize: 1,
+    whisperBatchBeamSize: 3,
     embeddingModel: 'BAAI/bge-base-en-v1.5',
     embeddingDevice: 'auto',
     sentenceEmbeddingsEnabled: true,
+
+    // Transcription filtering
+    filterMinWordLen: 2,
+    filterDedupe: true,
+    filterPunctuation: true,
+    fuzzyMatchMinLen: 4,
 
     // Voice command settings
     triggerCooldownMs: 1500,
@@ -47,6 +60,11 @@ const store = new Store({
     // Q&A mode
     qaWindowWords: 24,
     qaMatchThreshold: 0.60,
+
+    // Nuclear options (for very slow systems, disabled by default)
+    batchAudioMode: false,           // Process audio in batches instead of streaming
+    batchAudioIntervalMs: 3000,      // Interval between batch processing (ms)
+    keywordOnlyMatching: false,      // Skip embeddings, use only keyword overlap
   }
 });
 
@@ -240,9 +258,15 @@ function startPython() {
     TORGAL_WHISPER_DEVICE: settings.whisperDevice,
     TORGAL_WHISPER_COMPUTE_TYPE: settings.whisperComputeType,
     TORGAL_WHISPER_BEAM_SIZE: String(settings.whisperBeamSize),
+    TORGAL_WHISPER_BATCH_BEAM_SIZE: String(settings.whisperBatchBeamSize),
     TORGAL_EMBEDDING_MODEL: settings.embeddingModel,
     TORGAL_EMBEDDING_DEVICE: settings.embeddingDevice,
     TORGAL_SENTENCE_EMBEDDINGS_ENABLED: String(settings.sentenceEmbeddingsEnabled),
+    // Transcription filtering
+    TORGAL_FILTER_MIN_WORD_LEN: String(settings.filterMinWordLen),
+    TORGAL_FILTER_DEDUPE: String(settings.filterDedupe),
+    TORGAL_FILTER_PUNCTUATION: String(settings.filterPunctuation),
+    TORGAL_FUZZY_MATCH_MIN_LEN: String(settings.fuzzyMatchMinLen),
     // Audio settings
     TORGAL_SAMPLE_RATE: String(settings.audioSampleRate),
     TORGAL_AUDIO_BUFFER_SECONDS: String(settings.audioBufferSeconds),
@@ -264,6 +288,10 @@ function startPython() {
     // Q&A mode
     TORGAL_QA_WINDOW_WORDS: String(settings.qaWindowWords),
     TORGAL_QA_MATCH_THRESHOLD: String(settings.qaMatchThreshold),
+    // Nuclear options
+    TORGAL_BATCH_AUDIO_MODE: String(settings.batchAudioMode),
+    TORGAL_BATCH_AUDIO_INTERVAL_MS: String(settings.batchAudioIntervalMs),
+    TORGAL_KEYWORD_ONLY_MATCHING: String(settings.keywordOnlyMatching),
   };
 
   if (devVariant === 'cpu') {
