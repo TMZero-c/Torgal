@@ -170,6 +170,17 @@ function Build-ElectronApp {
         Move-Item $OutMake $OutVariant -Force
         Write-Host "✅ $BuildVariant build complete: app\out\make-$BuildVariant\" -ForegroundColor Green
     }
+
+    # Rename zip asset to include variant suffix (cpu/gpu)
+    $ZipDir = Join-Path $OutVariant "zip\win32\x64"
+    if (Test-Path $ZipDir) {
+        Get-ChildItem -Path $ZipDir -Filter "torgal-win32-x64-*.zip" | ForEach-Object {
+            if ($_.BaseName -notlike "*-$BuildVariant") {
+                $NewName = "$($_.BaseName)-$BuildVariant$($_.Extension)"
+                Rename-Item -Path $_.FullName -NewName $NewName
+            }
+        }
+    }
     
     # Clean up unpacked folder (not needed for distribution)
     if (Test-Path $OutUnpacked) {

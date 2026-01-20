@@ -36,7 +36,9 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 1. **Grab a release asset**
 
 - CPU build: works on any Windows machine (slower but smaller).
+  - `torgal-win32-x64-<version>-cpu.zip`
 - GPU build: requires an NVIDIA GPU with CUDA drivers (faster, very large).
+  - `torgal-win32-x64-<version>-gpu.zip` (may be split into parts)
 
 1. **Extract and launch**
 
@@ -52,8 +54,8 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 
 - If the GPU zip is split into parts, download every `.part00x` file.
 - Rejoin before unzipping (Windows example):
-  - CMD: `copy /b torgal-win32-x64-1.0.0.zip.part001 + torgal-win32-x64-1.0.0.zip.part002 torgal-win32-x64-1.0.0.zip`
-  - PowerShell: `Get-Content .\torgal-win32-x64-1.0.0.zip.part001, .\torgal-win32-x64-1.0.0.zip.part002 -Encoding Byte -ReadCount 0 | Set-Content .\torgal-win32-x64-1.0.0.zip -Encoding Byte`
+  - CMD: `copy /b torgal-win32-x64-<version>-gpu.zip.part001 + torgal-win32-x64-<version>-gpu.zip.part002 torgal-win32-x64-<version>-gpu.zip`
+  - PowerShell: `Get-Content .\torgal-win32-x64-<version>-gpu.zip.part001, .\torgal-win32-x64-<version>-gpu.zip.part002 -Encoding Byte -ReadCount 0 | Set-Content .\torgal-win32-x64-<version>-gpu.zip -Encoding Byte`
 
 ## Setup from source (dev)
 
@@ -106,8 +108,8 @@ The repo includes a PowerShell build pipeline that creates CPU and/or GPU bundle
 
 Output:
 
-- CPU: `app/out/make-cpu/...`
-- GPU: `app/out/make-gpu/...`
+- CPU: `app/out/make-cpu/zip/win32/x64/torgal-win32-x64-<version>-cpu.zip`
+- GPU: `app/out/make-gpu/zip/win32/x64/torgal-win32-x64-<version>-gpu.zip`
 
 ## Release note (GPU builds)
 
