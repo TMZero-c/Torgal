@@ -40,17 +40,17 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 - GPU build: requires an NVIDIA GPU with CUDA drivers (faster, very large).
   - `torgal-win32-x64-<version>-gpu.zip` (may be split into parts)
 
-1. **Extract and launch**
+2. **Extract and launch**
 
 - Unzip the downloaded asset and run the app executable inside the folder.
 - Allow microphone permissions when prompted.
 
-1. **First run model download**
+3. **First run model download**
 
 - The first launch downloads Whisper + embedding models (several GB).
 - Expect a longer startup time the first time only.
 
-1. **Split GPU zip assets**
+4. **Split GPU zip assets**
 
 - If the GPU zip is split into parts, download every `.part00x` file.
 - Rejoin before unzipping (Windows example):
@@ -64,16 +64,16 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 - `app/example.config.js` → `app/config.js`
 - `python/example.config.py` → `python/config.py`
 
-1. **Python setup** (CPU or GPU)
+2. **Python setup** (CPU or GPU)
 
 - CPU: install `python/requirements-cpu.txt`
 - GPU: install PyTorch with CUDA, then `python/requirements-gpu.txt`
 
-1. **Install app deps**
+3. **Install app deps**
 
 - Run `npm install` inside `app/`.
 
-1. **Start the app**
+4. **Start the app**
 
 - `npm run start` from `app/`
 - Optional flags: `-- --gpu` or `-- --cpu` to prefer a venv.
