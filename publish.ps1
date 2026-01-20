@@ -64,6 +64,17 @@ function Get-AssetPaths {
     return $assets
 }
 
+function Test-RemoteTag {
+    param([string]$Tag)
+
+    try {
+        $result = git ls-remote --tags origin "refs/tags/$Tag"
+        return -not [string]::IsNullOrWhiteSpace($result)
+    } catch {
+        return $false
+    }
+}
+
 function Split-File {
     param(
         [string]$FilePath,
@@ -130,6 +141,8 @@ $tag = "v$version"
 
 # Check if tag and release already exist
 $existingTag = git tag --list $tag
+$localTagExists = -not [string]::IsNullOrWhiteSpace($existingTag)
+$remoteTagExists = Test-RemoteTag -Tag $tag
 $releaseExists = $false
 try {
     & gh release view $tag *> $null
@@ -176,8 +189,18 @@ if ($releaseExists) {
 }
 
 # Create git tag if missing
-if (-not $existingTag) {
+if (-not $localTagExists -and -not $remoteTagExists) {
     git tag $tag
+    $localTagExists = $true
+} elseif (-not $localTagExists -and $remoteTagExists) {
+    Write-Host "[INFO] Tag $tag exists on origin but not locally. Fetching tags..." -ForegroundColor DarkGray
+    git fetch --tags
+}
+
+if ($localTagExists -and -not $remoteTagExists) {
+    Write-Host "[INFO] Pushing tag $tag to origin..." -ForegroundColor DarkGray
+    git push origin $tag
+    $remoteTagExists = $true
 }
 
 # Build gh release create args
