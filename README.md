@@ -40,22 +40,28 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 - GPU build: requires an NVIDIA GPU with CUDA drivers (faster, very large).
   - `torgal-win32-x64-<version>-gpu.zip` (may be split into parts)
 
-2. **Extract and launch**
+1. **Extract and launch**
 
 - Unzip the downloaded asset and run the app executable inside the folder.
 - Allow microphone permissions when prompted.
 
-3. **First run model download**
+1. **First run model download**
 
 - The first launch downloads Whisper + embedding models (several GB).
 - Expect a longer startup time the first time only.
 
-4. **Split GPU zip assets**
+1. **Split GPU zip assets**
 
 - If the GPU zip is split into parts, download every `.part00x` file.
 - Rejoin before unzipping (Windows example):
   - CMD: `copy /b torgal-win32-x64-<version>-gpu.zip.part001 + torgal-win32-x64-<version>-gpu.zip.part002 torgal-win32-x64-<version>-gpu.zip`
   - PowerShell: `Get-Content .\torgal-win32-x64-<version>-gpu.zip.part001, .\torgal-win32-x64-<version>-gpu.zip.part002 -Encoding Byte -ReadCount 0 | Set-Content .\torgal-win32-x64-<version>-gpu.zip -Encoding Byte`
+
+## CPU vs GPU performance
+
+- **GPU (CUDA)** is the intended real-time experience. It handles larger Whisper models and fast embeddings with low latency.
+- **CPU** works everywhere but can be dramatically slower, especially with larger models. On some machines it may lag behind real-time unless you tune settings.
+- If CPU feels too slow, use a smaller Whisper model and enable the nuclear options below.
 
 ## Setup from source (dev)
 
@@ -64,16 +70,16 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 - `app/example.config.js` → `app/config.js`
 - `python/example.config.py` → `python/config.py`
 
-2. **Python setup** (CPU or GPU)
+1. **Python setup** (CPU or GPU)
 
 - CPU: install `python/requirements-cpu.txt`
 - GPU: install PyTorch with CUDA, then `python/requirements-gpu.txt`
 
-3. **Install app deps**
+1. **Install app deps**
 
 - Run `npm install` inside `app/`.
 
-4. **Start the app**
+1. **Start the app**
 
 - `npm run start` from `app/`
 - Optional flags: `-- --gpu` or `-- --cpu` to prefer a venv.
@@ -89,10 +95,26 @@ These are parsed before embeddings and trigger immediate actions:
 - “first slide”, “last slide”
 
 ## Configuration
+
 - **Runtime changes**: Go into File -> Preferences and edit as needed
   - **App-side audio settings**: `app/config.js`
   - **Python matching/model settings**: `python/config.py`
 - **Runtime overrides**: environment variables prefixed with `TORGAL_` (see `python/config.py`).
+
+### Nuclear options (performance first)
+
+These are last-resort switches to keep CPU machines usable. You can enable them in Preferences or by setting env vars:
+
+- **Batch audio mode** (`TORGAL_BATCH_AUDIO_MODE=true`)
+  - Processes audio in larger intervals instead of every chunk.
+  - Higher latency, lower CPU usage.
+
+- **Batch interval** (`TORGAL_BATCH_AUDIO_INTERVAL_MS`)
+  - Increase to reduce CPU load further at the cost of responsiveness.
+
+- **Keyword-only matching** (`TORGAL_KEYWORD_ONLY_MATCHING=true`)
+  - Skips embeddings entirely and uses keyword overlap only.
+  - Faster, but less accurate and more sensitive to wording changes.
 
 ## Model downloads & cache
 
