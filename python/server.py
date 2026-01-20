@@ -315,21 +315,21 @@ def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandS
     # Batch audio mode: only process at intervals, not every chunk
     if BATCH_AUDIO_MODE:
         if not silent:
-            transcriber.add_audio(base64.b64decode(msg["data"]))
-        
+            transcriber.add_audio_batch(base64.b64decode(msg["data"]))
+
         # Check if enough time has passed since last batch process
         interval_sec = BATCH_AUDIO_INTERVAL_MS / 1000.0
         if now - speech_state.last_word_ts < interval_sec:
             return  # Skip this chunk, wait for batch interval
-        
+
         # Process the accumulated audio using batch method (no LocalAgreement)
         words = transcriber.process_batch()
+        speech_state.last_word_ts = now
         words = _normalize_words(words)
-        
+
         if words:
             log(f"BATCH: {' '.join(words)}")
             send_type(IpcType.FINAL, text=" ".join(words))
-            speech_state.last_word_ts = now
             _process_words(words, matcher, text_window, command_state)
         return
     

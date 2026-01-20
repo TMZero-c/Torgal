@@ -648,8 +648,9 @@ class KeywordMatcher:
         if not text:
             return None
 
+        cooldown_blocked = False
         if not ignore_cooldown and self.words_since < self.cooldown:
-            return None
+            cooldown_blocked = True
 
         speech_tokens = _tokenize(text)
         if not speech_tokens:
@@ -657,7 +658,7 @@ class KeywordMatcher:
 
         # Calculate overlap scores for all slides
         scores = []
-        for i, (slide_tokens, title_tokens) in enumerate(zip(self._slide_tokens, self._title_tokens)):
+        for slide_tokens, title_tokens in zip(self._slide_tokens, self._title_tokens):
             # Jaccard-style overlap: intersection / union
             if not slide_tokens:
                 scores.append(0.0)
@@ -680,34 +681,113 @@ class KeywordMatcher:
         if self.current < len(scores) - 1:
             scores[self.current + 1] += self.forward_bias
 
+        scores = [min(1.0, max(0.0, s)) for s in scores]
+
+        prev_slide = self.current - 1 if self.current > 0 else self.current
+        next_slide = self.current + 1 if self.current + 1 < len(scores) else self.current
+
         # Find best match
         best_idx = int(np.argmax(scores))
-        best_score = scores[best_idx]
-        current_score = scores[self.current]
+        best_score = float(scores[best_idx])
+        current_score = float(scores[self.current])
+
+        target = best_idx
+        diff = float(scores[target] - scores[self.current])
+        required_diff = 0.05
+
+        intent = "stay"
+        if target > self.current:
+            intent = "forward"
+        elif target < self.current:
+            intent = "backward"
+
+        non_adjacent = target not in {prev_slide, self.current, next_slide}
+        if non_adjacent:
+            intent = "jump"
+
+        would_transition = (
+            target != self.current
+            and scores[target] >= self.threshold
+            and diff >= required_diff
+            and not cooldown_blocked
+        )
+
+        if not would_transition:
+            intent = "stay"
+
+        def _keywords_for_decision() -> list[str]:
+            if not speech_tokens:
+                return []
+            current_tokens = self._slide_tokens[self.current]
+            target_tokens = self._slide_tokens[target]
+            if target == self.current:
+                base = speech_tokens & current_tokens
+                title_tokens = self._title_tokens[self.current]
+            else:
+                overlap_target = speech_tokens & target_tokens
+                overlap_current = speech_tokens & current_tokens
+                base = overlap_target - overlap_current
+                if not base:
+                    base = overlap_target
+                title_tokens = self._title_tokens[target]
+            if not base:
+                return []
+            ordered = sorted(
+                base,
+                key=lambda w: (0 if w in title_tokens else 1, -len(w), w),
+            )
+            return ordered[:8]
+
+        keywords = _keywords_for_decision()
+
+        eval_payload = {
+            "current_slide": int(self.current),
+            "prev_slide": int(prev_slide),
+            "next_slide": int(next_slide),
+            "target_slide": int(target),
+            "best_slide": int(best_idx),
+            "prev_sim": float(scores[prev_slide]),
+            "current_sim": float(scores[self.current]),
+            "next_sim": float(scores[next_slide]),
+            "target_sim": float(scores[target]),
+            "best_sim": float(scores[best_idx]),
+            "threshold": float(self.threshold),
+            "required_diff": float(required_diff),
+            "diff": float(diff),
+            "intent": intent,
+            "would_transition": bool(would_transition),
+            "qa_mode": bool(self.qa_mode),
+            "allow_non_adjacent": True,
+            "non_adjacent": bool(non_adjacent),
+            "cooldown_blocked": bool(cooldown_blocked),
+            "cooldown_words": int(self.cooldown),
+            "words_since": int(self.words_since),
+            "options": [
+                {"label": "Prev", "slide": int(prev_slide), "sim": float(scores[prev_slide])},
+                {"label": "Current", "slide": int(self.current), "sim": float(scores[self.current])},
+                {"label": "Next", "slide": int(next_slide), "sim": float(scores[next_slide])},
+            ],
+            "keywords": keywords,
+            "phrases": [],
+        }
+
+        if would_transition:
+            old = self.current
+            self.current = target
+            self.words_since = 0
+            log(f"KEYWORD TRANSITION: {old} → {target}")
+            transition_payload = {
+                "type": "slide_transition",
+                "from_slide": old,
+                "to_slide": target,
+                "confidence": float(scores[target]),
+                "slide_title": self.slides[target].title,
+                "intent": intent,
+            }
+            return {"eval": eval_payload, "transition": transition_payload}
 
         log(f"Keyword match: best={best_idx}@{best_score:.3f}, current={self.current}@{current_score:.3f}")
-
-        # Must exceed threshold and beat current slide significantly
-        if best_score < self.threshold:
-            return None
-        if best_idx == self.current:
-            return None
-        if best_score <= current_score + 0.05:
-            return None
-
-        # Transition!
-        old = self.current
-        self.current = best_idx
-        self.words_since = 0
-
-        log(f"KEYWORD TRANSITION: {old} → {best_idx}")
-
-        return {
-            "from": old,
-            "to": best_idx,
-            "score": float(best_score),
-            "method": "keyword",
-        }
+        return {"eval": eval_payload}
 
     def add_words(self, n: int) -> None:
         self.words_since += n

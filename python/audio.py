@@ -75,6 +75,8 @@ class Transcriber:
         self.buffer_seconds = buffer_seconds or AUDIO.buffer_seconds
         self.buffer = np.array([], dtype=np.float32)
         self.last_words = []
+        self.batch_chunks: list[np.ndarray] = []
+        self.batch_samples = 0
         self.hotwords: str | None = None  # Comma-separated keywords to boost
         self._confirmed_count = 0  # Track how many words we've confirmed total
 
@@ -94,6 +96,16 @@ class Transcriber:
         if len(self.buffer) > max_samples:
             # Sliding window buffer: more seconds = more context, but higher latency.
             self.buffer = self.buffer[-max_samples:]
+
+    def add_audio_batch(self, pcm_bytes: bytes) -> None:
+        """Append audio for batch mode without sliding buffer churn."""
+        if not pcm_bytes:
+            return
+        samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        if samples.size == 0:
+            return
+        self.batch_chunks.append(samples)
+        self.batch_samples += samples.size
 
     def process(self):
         """Returns (confirmed_words, partial_words).
@@ -152,7 +164,8 @@ class Transcriber:
         This is better for batch mode where we don't need streaming stability.
         Returns all words as 'confirmed' since there's no partial in batch mode.
         """
-        if len(self.buffer) < self.sample_rate // 2:
+        min_samples = int(self.sample_rate * 0.25)
+        if self.batch_samples < min_samples:
             return []
 
         # Build transcribe kwargs - use higher beam for batch (more accurate)
@@ -166,7 +179,11 @@ class Transcriber:
         if self.hotwords:
             transcribe_kwargs["hotwords"] = self.hotwords
 
-        segments, _ = self.model.transcribe(self.buffer, **transcribe_kwargs)
+        if not self.batch_chunks:
+            return []
+
+        audio = self.batch_chunks[0] if len(self.batch_chunks) == 1 else np.concatenate(self.batch_chunks)
+        segments, _ = self.model.transcribe(audio, **transcribe_kwargs)
 
         words = []
         for seg in segments:
@@ -176,8 +193,9 @@ class Transcriber:
         # Filter garbage and dedupe
         words = _filter_words(words)
         
-        # Clear buffer completely for next batch
-        self.buffer = np.array([], dtype=np.float32)
+        # Clear batch buffers completely for next batch
+        self.batch_chunks = []
+        self.batch_samples = 0
         self.last_words = []
         
         return words
@@ -186,3 +204,5 @@ class Transcriber:
         self.buffer = np.array([], dtype=np.float32)
         self.last_words = []
         self._confirmed_count = 0
+        self.batch_chunks = []
+        self.batch_samples = 0
