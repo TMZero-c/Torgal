@@ -1,6 +1,6 @@
 {
   "name": "torgal",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local-first AI presentation slide advancer",
   "author": "TMZero-c, Googolplexic",
   "main": "main.js",

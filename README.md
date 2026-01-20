@@ -1,6 +1,6 @@
 # Torgal
 
-Version: 1.0.0
+Version: 1.0.1
 
 Local-first AI presentation assistant that listens to your talk and advances slides automatically.
 
@@ -147,3 +147,5 @@ GPU builds are large and can exceed GitHub’s 2 GB per-asset limit. If you uplo
 - Presenter and slideshow zoom controls
 - Broader file compatibility (PPTX import, Google Slides export workflows, richer PDF handling)
 - Better onboarding and setup diagnostics (GPU detection, model download progress, mic checks)
+
+
