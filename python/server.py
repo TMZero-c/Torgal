@@ -89,6 +89,7 @@ class IpcType(str, Enum):
     SLIDE_SET = "slide_set"
     RESET_DONE = "reset_done"
     SET_QA_MODE = "set_qa_mode"
+    EMBEDDING_MODEL_LOADING = "embedding_model_loading"
 
 
 @dataclass
@@ -380,6 +381,10 @@ def handle_load_slides(msg, text_window, transcriber=None):
             f"  Slide {i}: title={type(title).__name__}:'{str(title)[:30]}' "
             f"content={type(content).__name__}:{len(str(content))} chars"
         )
+
+    # Notify frontend that embedding model is loading (may take time on first run)
+    log("Sending embedding_model_loading to Electron")
+    send_type(IpcType.EMBEDDING_MODEL_LOADING, count=len(slides_data))
 
     slides = [
         Slide(i, s.get("title", f"Slide {i + 1}"), s.get("content", ""))

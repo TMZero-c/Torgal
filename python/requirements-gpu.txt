@@ -1,0 +1,24 @@
+# ===========================================
+# Torgal Python Dependencies (GPU Version)
+# ===========================================
+# Larger build with CUDA/GPU support for faster inference
+# Requires NVIDIA GPU with CUDA support
+#
+# IMPORTANT: Install PyTorch FIRST with:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# Then install this file:
+#   pip install -r requirements-gpu.txt
+# ===========================================
+
+# --- Core ML/AI ---
+faster-whisper>=1.2.0     # Speech-to-text (CTranslate2 Whisper)
+sentence-transformers>=5.0 # Text embeddings for slide matching
+
+# --- Data Processing ---
+numpy>=2.0                # Array operations (used by audio/slides)
+
+# --- Document Parsing ---
+PyMuPDF>=1.24             # PDF/slide rendering (import fitz)
+
+# --- Build Tools ---
+pyinstaller>=6.0          # For creating executables

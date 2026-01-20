@@ -53,7 +53,7 @@ function isWindows() {
 function resolvePythonCommand() {
   // Priority:
   // 1) Explicit env override
-  // 2) Dev venv at repo root
+  // 2) Dev venv at repo root (.venv, .venv-cpu, .venv-gpu)
   // 3) Windows launcher 'py -3'
   // 4) python or python3 on PATH
   // Note: When packaged, we use bundled executables directly, not Python
@@ -61,10 +61,14 @@ function resolvePythonCommand() {
 
   if (process.env.PYTHON_PATH) candidates.push(process.env.PYTHON_PATH);
 
-  if (isWindows()) {
-    candidates.push(path.join(projectRoot, '.venv', 'Scripts', 'python.exe'));
-  } else {
-    candidates.push(path.join(projectRoot, '.venv', 'bin', 'python'));
+  // Check for various venv locations
+  const venvNames = ['.venv', '.venv-gpu', '.venv-cpu'];
+  for (const venv of venvNames) {
+    if (isWindows()) {
+      candidates.push(path.join(projectRoot, venv, 'Scripts', 'python.exe'));
+    } else {
+      candidates.push(path.join(projectRoot, venv, 'bin', 'python'));
+    }
   }
 
   // PATH-level fallbacks (do not existsSync these)
@@ -88,23 +92,20 @@ function resolveBundledExe(exeName) {
 
   // When packaged, look in resources folder (standalone exe)
   if (app.isPackaged && process.resourcesPath) {
-    // New: standalone exe directly in resources
+    // Standalone exe directly in resources (from extraResource)
     const standaloneExe = path.join(process.resourcesPath, exeFile);
     if (fs.existsSync(standaloneExe)) return standaloneExe;
-
-    // Legacy: exe in subfolder
-    const exePath = path.join(process.resourcesPath, exeName, exeFile);
-    if (fs.existsSync(exePath)) return exePath;
   }
 
-  // Dev mode: check if dist folder exists (for testing bundled builds)
-  // New: standalone exe
-  const devStandaloneExe = path.join(projectRoot, 'python', 'dist', exeFile);
-  if (fs.existsSync(devStandaloneExe)) return devStandaloneExe;
+  // Dev mode: check dist/cpu and dist/gpu folders
+  for (const variant of ['cpu', 'gpu']) {
+    const variantExe = path.join(projectRoot, 'python', 'dist', variant, exeFile);
+    if (fs.existsSync(variantExe)) return variantExe;
+  }
 
-  // Legacy: exe in subfolder
-  const devExePath = path.join(projectRoot, 'python', 'dist', exeName, exeFile);
-  if (fs.existsSync(devExePath)) return devExePath;
+  // Legacy: exe directly in dist folder
+  const legacyExe = path.join(projectRoot, 'python', 'dist', exeFile);
+  if (fs.existsSync(legacyExe)) return legacyExe;
 
   return null;
 }
@@ -238,6 +239,14 @@ function startPython() {
           log('FROM_PYTHON', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
           if (msg.type === 'ready') {
             broadcastStatus('model_ready');
+          } else if (msg.type === 'embedding_model_loading') {
+            // Pause audio and show loading status while embedding model loads
+            isPresentationLoading = true;
+            broadcastStatus('embedding_model_loading', { count: msg.count });
+          } else if (msg.type === 'slides_ready') {
+            // Embedding model loaded and slides are ready
+            isPresentationLoading = false;
+            broadcastStatus('slides_embedded', { count: msg.count });
           }
           broadcast('transcript', msg);
         } catch (e) { }
@@ -385,6 +394,7 @@ function runSlideParser(filePath) {
 
   let output = '';
   py.stdout.on('data', data => output += data.toString());
+  py.stderr.on('data', data => log('PARSE', `stderr: ${data.toString().trim()}`));
   py.on('error', err => {
     log('PARSE', `Parser error: ${err.message}`);
     isPresentationLoading = false;

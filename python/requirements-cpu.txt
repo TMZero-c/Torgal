@@ -1,0 +1,22 @@
+# ===========================================
+# Torgal Python Dependencies (CPU Version)
+# ===========================================
+# Smaller build without CUDA/GPU support
+# ===========================================
+
+# --- PyTorch CPU-only (MUST install first) ---
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+
+# --- Core ML/AI ---
+faster-whisper>=1.2.0     # Speech-to-text (CTranslate2 Whisper)
+sentence-transformers>=5.0 # Text embeddings for slide matching
+
+# --- Data Processing ---
+numpy>=2.0                # Array operations (used by audio/slides)
+
+# --- Document Parsing ---
+PyMuPDF>=1.24             # PDF/slide rendering (import fitz)
+
+# --- Build Tools ---
+pyinstaller>=6.0          # For creating executables

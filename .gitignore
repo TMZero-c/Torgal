@@ -1,6 +1,8 @@
 /python/__pycache__
 /app/node_modules
 /.venv
+/.venv-cpu
+/.venv-gpu
 /app/out/
 /python/config.py
 /app/config.js

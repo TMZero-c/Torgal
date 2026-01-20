@@ -27,13 +27,20 @@ function updateAudioPauseUI() {
     const transcriptPartial = $('transcript-partial');
     const intentLabel = $('intent-label');
 
-    const isPaused = audioPaused || userPaused;
+    const isPaused = audioPaused || userPaused || embeddingModelLoading;
 
     if (pauseBtn) {
         pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+        // Disable pause button while embedding model is loading
+        if (embeddingModelLoading) {
+            pauseBtn.disabled = true;
+        }
     }
 
-    if (isPaused) {
+    if (embeddingModelLoading) {
+        if (transcriptPartial) transcriptPartial.textContent = 'Loading embedding model...';
+        if (intentLabel) intentLabel.textContent = 'Please wait...';
+    } else if (isPaused) {
         if (transcriptPartial) transcriptPartial.textContent = 'Paused';
         if (intentLabel) intentLabel.textContent = 'Paused';
     } else if (listening) {
@@ -45,10 +52,12 @@ function updateAudioPauseUI() {
 let uploadBtnEl = null;
 let modelReady = false;
 let slidesProcessing = false;
+let embeddingModelLoading = false;
 const uploadText = {
     idle: 'Upload Presentation',
     modelLoading: 'Loading model...',
-    slidesProcessing: 'Processing slides...'
+    slidesProcessing: 'Processing slides...',
+    embeddingLoading: 'Loading embedding model...'
 };
 
 function refreshUploadButton() {
@@ -57,6 +66,11 @@ function refreshUploadButton() {
     if (!modelReady) {
         btn.disabled = true;
         btn.textContent = uploadText.modelLoading;
+        return;
+    }
+    if (embeddingModelLoading) {
+        btn.disabled = true;
+        btn.textContent = uploadText.embeddingLoading;
         return;
     }
     if (slidesProcessing) {
@@ -439,6 +453,12 @@ function bindUi() {
                 slidesProcessing = true;
             } else if (msg.status === 'slides_ready' || msg.status === 'slides_failed') {
                 slidesProcessing = false;
+            } else if (msg.status === 'embedding_model_loading') {
+                embeddingModelLoading = true;
+                updateAudioPauseUI();
+            } else if (msg.status === 'slides_embedded') {
+                embeddingModelLoading = false;
+                updateAudioPauseUI();
             }
             refreshUploadButton();
             return;

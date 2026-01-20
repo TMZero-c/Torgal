@@ -16,26 +16,25 @@ import os
 import shutil
 
 # Packages to exclude for smaller builds
+# IMPORTANT: Keep this minimal - aggressive excludes break the app
 EXCLUDE_PACKAGES = [
-    # Testing/dev tools
-    'pytest', 'unittest', 'test', 'tests',
-    # Unused ML backends
-    'tensorflow', 'keras', 'jax', 'flax',
-    # Documentation
-    'sphinx', 'docutils',
-    # Jupyter (not needed for runtime)
-    'IPython', 'jupyter', 'notebook', 'ipykernel',
-    # Unused torch extensions (if not using GPU)
-    'torch.distributed', 'torch.testing',
-    # Large optional deps
-    'matplotlib', 'pandas', 'scipy.sparse',
+    # Only exclude things we definitely don't use
+    'pytest',
+    'unittest', 
+    'tensorflow',
+    'keras',
+    'jax',
+    'flax',
+    'sphinx',
+    'IPython',
+    'jupyter',
+    'notebook',
+    'matplotlib',
 ]
 
-# CUDA libraries to exclude for CPU-only builds
-CUDA_EXCLUDES = [
-    'nvidia', 'cuda', 'cudnn', 'cublas', 'cufft', 'curand', 'cusolver', 'cusparse',
-    'nccl', 'nvrtc', 'torch_cuda', 'libnvrtc', 'libcudart',
-]
+# For CPU builds, we don't exclude CUDA modules - the CPU PyTorch just doesn't have them
+# The size savings come from using CPU-only PyTorch, not from excludes
+CUDA_EXCLUDES = []
 
 def get_folder_size(folder):
     """Get total size of a folder in bytes."""
@@ -47,10 +46,10 @@ def get_folder_size(folder):
                 total += os.path.getsize(fp)
     return total
 
-def build_variant(variant='cpu', output_suffix=''):
-    """Build a single variant (cpu or gpu)."""
+def build_variant(variant='cpu'):
+    """Build a single variant (cpu or gpu) into dist/{variant}/."""
     include_gpu = (variant == 'gpu')
-    dist_folder = f'dist{output_suffix}'
+    dist_folder = f'dist/{variant}'
     
     # Common PyInstaller options
     common_opts = [
@@ -65,18 +64,30 @@ def build_variant(variant='cpu', output_suffix=''):
     excludes = EXCLUDE_PACKAGES.copy()
     if not include_gpu:
         excludes.extend(CUDA_EXCLUDES)
-        print(f"\n🔧 Building CPU-only version → {dist_folder}/")
+        print(f"\n[BUILD] Building CPU-only version -> {dist_folder}/")
     else:
-        print(f"\n🔧 Building GPU/CUDA version → {dist_folder}/")
+        print(f"\n[BUILD] Building GPU/CUDA version -> {dist_folder}/")
     
     for pkg in excludes:
         common_opts.append(f'--exclude-module={pkg}')
     
+    # GPU-specific: collect CUDA binaries
+    gpu_opts = []
+    if include_gpu:
+        gpu_opts = [
+            '--collect-binaries=torch',
+            '--collect-binaries=ctranslate2',
+            '--collect-all=nvidia.cublas',
+            '--collect-all=nvidia.cuda_runtime',
+            '--collect-all=nvidia.cudnn',
+        ]
+    
     # Build server.exe
-    print("\n📦 Building server executable...")
+    print("\n[BUILD] Building server executable...")
     server_cmd = [
         sys.executable, '-m', 'PyInstaller',
         *common_opts,
+        *gpu_opts,
         '--name=server',
         '--onefile',  # Single standalone exe
         '--add-data=config.py;.',
@@ -108,7 +119,7 @@ def build_variant(variant='cpu', output_suffix=''):
     subprocess.run(server_cmd, check=True)
     
     # Build parse_slides.exe
-    print("\n📦 Building parse_slides executable...")
+    print("\n[BUILD] Building parse_slides executable...")
     subprocess.run([
         sys.executable, '-m', 'PyInstaller',
         *common_opts,
@@ -129,10 +140,10 @@ def build_variant(variant='cpu', output_suffix=''):
     slides_size = os.path.getsize(f'{dist_folder}/parse_slides.exe') if os.path.exists(f'{dist_folder}/parse_slides.exe') else 0
     total_mb = (server_size + slides_size) / (1024**2)
     
-    print(f"\n✅ {variant.upper()} build complete!")
-    print(f"   📁 {dist_folder}/server.exe ({server_size / (1024**2):.1f} MB)")
-    print(f"   📁 {dist_folder}/parse_slides.exe ({slides_size / (1024**2):.1f} MB)")
-    print(f"   📊 Total: {total_mb:.1f} MB")
+    print(f"\n[OK] {variant.upper()} build complete!")
+    print(f"     {dist_folder}/server.exe ({server_size / (1024**2):.1f} MB)")
+    print(f"     {dist_folder}/parse_slides.exe ({slides_size / (1024**2):.1f} MB)")
+    print(f"     Total: {total_mb:.1f} MB")
     
     return total_mb
 
@@ -141,34 +152,28 @@ def build(mode='cpu'):
     
     if mode == 'both':
         print("=" * 50)
-        print("🚀 Building BOTH CPU and GPU versions")
+        print("Building BOTH CPU and GPU versions")
         print("=" * 50)
         
         # Build CPU version
-        cpu_size = build_variant('cpu', '-cpu')
+        cpu_size = build_variant('cpu')
         
         # Build GPU version
-        gpu_size = build_variant('gpu', '-gpu')
-        
-        # Also copy CPU to default dist/ for Electron packaging
-        if os.path.exists('dist'):
-            shutil.rmtree('dist')
-        shutil.copytree('dist-cpu', 'dist')
+        gpu_size = build_variant('gpu')
         
         print("\n" + "=" * 50)
-        print("🎉 All builds complete!")
+        print("All builds complete!")
         print("=" * 50)
-        print(f"\n   dist-cpu/  → CPU-only ({cpu_size:.1f} MB) - Smaller, works everywhere")
-        print(f"   dist-gpu/  → GPU/CUDA ({gpu_size:.1f} MB) - Faster with NVIDIA GPU")
-        print(f"   dist/      → Default (CPU copy for Electron packaging)")
+        print(f"\n   dist/cpu/  -> CPU-only ({cpu_size:.1f} MB) - Smaller, works everywhere")
+        print(f"   dist/gpu/  -> GPU/CUDA ({gpu_size:.1f} MB) - Faster with NVIDIA GPU")
         
     elif mode == 'gpu':
-        build_variant('gpu', '')
+        build_variant('gpu')
         
     else:  # cpu (default)
-        build_variant('cpu', '')
+        build_variant('cpu')
     
-    print("\n📝 Next step: cd ../app && npm run make")
+    print("\n[NEXT] cd ../app && npm run make")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Build Torgal Python executables')
