@@ -51,6 +51,39 @@ def _tokenize(text: str) -> Set[str]:
     return {t for t in tokens if len(t) > 2 and t not in _STOPWORDS}
 
 
+def extract_hotwords(slides: list) -> list[str]:
+    """Extract important keywords from slides for Whisper hotwords.
+    
+    Returns unique, meaningful words that appear in slide content,
+    prioritizing less common terms that are presentation-specific.
+    """
+    from collections import Counter
+    
+    all_tokens: list[str] = []
+    for slide in slides:
+        title = getattr(slide, 'title', '') or ''
+        content = getattr(slide, 'content', '') or ''
+        # Title words are more important
+        title_tokens = list(_tokenize(title))
+        content_tokens = list(_tokenize(content))
+        # Weight title tokens higher by adding them multiple times
+        all_tokens.extend(title_tokens * 3)
+        all_tokens.extend(content_tokens)
+    
+    # Count frequency
+    counts = Counter(all_tokens)
+    
+    # Filter: keep words that appear 1-5 times (not too common, not typos)
+    # and are at least 4 chars (more distinctive)
+    keywords = [
+        word for word, count in counts.most_common(100)
+        if 1 <= count <= 10 and len(word) >= 4
+    ]
+    
+    log(f"Extracted {len(keywords)} hotwords from {len(slides)} slides")
+    return keywords[:50]  # Limit to top 50
+
+
 def _split_sentences(text: str) -> List[str]:
     if not text:
         return []

@@ -1,5 +1,19 @@
-faster-whisper>=1.0.0
-numpy>=1.24.0
-sentence-transformers
-pymupdf
-python-pptx
+# ===========================================
+# Torgal Python Dependencies
+# ===========================================
+# Install: pip install -r requirements.txt
+# Clean:   pip uninstall -r requirements.txt -y
+# ===========================================
+
+# --- Core ML/AI ---
+faster-whisper>=1.2.0     # Speech-to-text (CTranslate2 Whisper)
+sentence-transformers>=5.0 # Text embeddings for slide matching
+
+# --- Data Processing ---
+numpy>=2.0                # Array operations (used by audio/slides)
+
+# --- Document Parsing ---
+PyMuPDF>=1.24             # PDF/slide rendering (import fitz)
+
+# --- Build Tools (dev only, not needed at runtime) ---
+# pyinstaller>=6.0        # Uncomment to install: pip install pyinstaller

@@ -9,15 +9,19 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "build:python": "cd ../python && python build_exe.py",
-    "build:all": "npm run build:python && npm run make"
+    "build:python:gpu": "cd ../python && python build_exe.py --gpu",
+    "build:python:both": "cd ../python && python build_exe.py --both",
+    "build:all": "npm run build:python && npm run make",
+    "build:all:gpu": "npm run build:python:gpu && npm run make",
+    "build:all:both": "npm run build:python:both && npm run make"
   },
   "config": {
     "forge": {
       "packagerConfig": {
         "asar": true,
         "extraResource": [
-          "../python/dist/server",
-          "../python/dist/parse_slides"
+          "../python/dist/server.exe",
+          "../python/dist/parse_slides.exe"
         ],
         "icon": "assets/IMPORTANT"
       },
@@ -25,7 +29,9 @@
         {
           "name": "@electron-forge/maker-squirrel",
           "config": {
-            "name": "torgal"
+            "name": "Torgal",
+            "setupExe": "TorgalSetup.exe",
+            "setupIcon": "assets/IMPORTANT.ico"
           }
         },
         {

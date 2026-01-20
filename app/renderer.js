@@ -1,11 +1,11 @@
 const $ = id => document.getElementById(id);
 
-// Audio pipeline tuning (from app/config.js)
+// Audio pipeline tuning (from app/config.js, can be overridden by settings)
 const appConfig = window.APP_CONFIG ?? {};
-const AUDIO_SAMPLE_RATE = appConfig.audioSampleRate ?? 16000;
-const AUDIO_CHUNK_SIZE = appConfig.audioChunkSize ?? 2048; // Smaller = lower latency, higher CPU
-const SILENCE_RMS_THRESHOLD = appConfig.silenceRmsThreshold ?? 0.012; // Lower = more sensitive
-const SILENCE_SMOOTHING = appConfig.silenceSmoothing ?? 0.8; // 0..1 smoothing factor
+let AUDIO_SAMPLE_RATE = appConfig.audioSampleRate ?? 16000;
+let AUDIO_CHUNK_SIZE = appConfig.audioChunkSize ?? 2048; // Smaller = lower latency, higher CPU
+let SILENCE_RMS_THRESHOLD = appConfig.silenceRmsThreshold ?? 0.012; // Lower = more sensitive
+let SILENCE_SMOOTHING = appConfig.silenceSmoothing ?? 0.8; // 0..1 smoothing factor
 
 let slides = [];
 let current = 0;
@@ -16,8 +16,31 @@ let source;
 let stream;
 let stats = { totalConf: 0, count: 0, matched: 0 };
 let lastRms = 0;
+let audioPaused = false; // Track if audio is paused during presentation loading
+let userPaused = false; // Track if user manually paused audio
 
 const log = (tag, msg) => console.log(`[renderer] [${tag}] ${msg}`);
+
+// Update UI to reflect audio pause state
+function updateAudioPauseUI() {
+    const pauseBtn = $('pause-btn');
+    const transcriptPartial = $('transcript-partial');
+    const intentLabel = $('intent-label');
+
+    const isPaused = audioPaused || userPaused;
+
+    if (pauseBtn) {
+        pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+    }
+
+    if (isPaused) {
+        if (transcriptPartial) transcriptPartial.textContent = 'Paused';
+        if (intentLabel) intentLabel.textContent = 'Paused';
+    } else if (listening) {
+        if (transcriptPartial) transcriptPartial.textContent = 'Listening...';
+        if (intentLabel) intentLabel.textContent = 'Listening...';
+    }
+}
 
 let uploadBtnEl = null;
 let modelReady = false;
@@ -71,6 +94,7 @@ function showSlide(i) {
 
 async function start() {
     log('AUDIO', 'Starting microphone capture...');
+    audioPaused = false;
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     // Match server sample rate to avoid resampling overhead.
     audioCtx = new AudioContext({ sampleRate: AUDIO_SAMPLE_RATE });
@@ -79,6 +103,9 @@ async function start() {
     // 2048 frames at 16kHz ≈ 128ms chunks.
     processor = audioCtx.createScriptProcessor(AUDIO_CHUNK_SIZE, 1, 1);
     processor.onaudioprocess = e => {
+        // Don't send audio while paused (loading new presentation or user paused)
+        if (audioPaused || userPaused) return;
+
         const f32 = e.inputBuffer.getChannelData(0);
         // Compute RMS for basic silence detection.
         let sum = 0;
@@ -286,6 +313,7 @@ function generateThumbnails() {
 function bindUi() {
     const uploadBtn = $('upload-btn');
     const resetBtn = $('reset-btn');
+    const pauseBtn = $('pause-btn');
     const qaModeToggle = $('qa-mode-toggle');
 
     if (!uploadBtn) {
@@ -306,6 +334,17 @@ function bindUi() {
             log('UPLOAD', `Error: ${err.message}`);
         }
     };
+
+    // Pause/Resume button handler
+    if (pauseBtn) {
+        pauseBtn.onclick = () => {
+            if (!listening) return; // Can't pause if not listening
+            userPaused = !userPaused;
+            log('AUDIO', `User ${userPaused ? 'paused' : 'resumed'} audio`);
+            window.api.toggleAudioPause(userPaused);
+            updateAudioPauseUI();
+        };
+    }
 
     if (resetBtn) {
         resetBtn.onclick = () => {
@@ -332,8 +371,30 @@ function bindUi() {
     if (prevBtn) prevBtn.onclick = () => { if (current > 0) showSlide(current - 1); };
     if (nextBtn) nextBtn.onclick = () => { if (current < slides.length - 1) showSlide(current + 1); };
 
+    // Listen for pause-audio events when loading a new presentation
+    window.api.onPauseAudio(() => {
+        log('AUDIO', 'Pausing audio processing for new presentation load');
+        audioPaused = true;
+        updateAudioPauseUI();
+        // Reset stats for new presentation
+        resetStats();
+    });
+
+    // Listen for settings updates
+    window.api.onSettingsLoaded((settings) => {
+        log('SETTINGS', 'Received settings from main process');
+        if (settings.audioSampleRate) AUDIO_SAMPLE_RATE = settings.audioSampleRate;
+        if (settings.audioChunkSize) AUDIO_CHUNK_SIZE = settings.audioChunkSize;
+        if (settings.silenceRmsThreshold) SILENCE_RMS_THRESHOLD = settings.silenceRmsThreshold;
+        if (settings.silenceSmoothing) SILENCE_SMOOTHING = settings.silenceSmoothing;
+    });
+
     window.api.onSlidesLoaded(data => {
         log('SLIDES', `Received slides-loaded event: ${data.status}`);
+        // Resume audio processing when slides are loaded
+        audioPaused = false;
+        userPaused = false; // Also reset user pause state
+
         if (data.status === 'success') {
             log('SLIDES', `Got ${data.total_pages} slides with images`);
             slides = data.slides;
@@ -346,18 +407,23 @@ function bindUi() {
             const placeholder = $('placeholder');
             if (placeholder) placeholder.classList.add('hidden');
 
+            // Enable pause button when slides are loaded
+            const pauseBtn = $('pause-btn');
+            if (pauseBtn) pauseBtn.disabled = false;
+
             if ($('upload-btn')) start(); // Auto-start listening when slides load
             slidesProcessing = false;
             refreshUploadButton();
+            updateAudioPauseUI();
             return;
         }
         slidesProcessing = false;
         refreshUploadButton();
+        updateAudioPauseUI();
     });
 
     window.api.onTranscript(msg => {
         log('MSG', `${msg.type}${msg.text ? ': ' + msg.text.substring(0, 30) : ''}`);
-
         if (msg.type === 'ready') {
             modelReady = true;
             refreshUploadButton();
@@ -425,7 +491,7 @@ window.addEventListener('DOMContentLoaded', bindUi);
 // Keyboard navigation: arrow keys to move slides
 window.addEventListener('keydown', (e) => {
     if (slides.length === 0) return;
-    
+
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
         if (current > 0) showSlide(current - 1);

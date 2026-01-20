@@ -38,6 +38,16 @@ class Transcriber:
         self.buffer_seconds = buffer_seconds
         self.buffer = np.array([], dtype=np.float32)
         self.last_words = []
+        self.hotwords: str | None = None  # Comma-separated keywords to boost
+
+    def set_hotwords(self, keywords: list[str]) -> None:
+        """Set hotwords from slide keywords to boost recognition accuracy."""
+        if keywords:
+            # faster-whisper expects comma-separated string
+            self.hotwords = ", ".join(keywords[:50])  # Limit to 50 keywords
+            log(f"Hotwords set: {len(keywords)} keywords")
+        else:
+            self.hotwords = None
 
     def add_audio(self, pcm_bytes: bytes) -> None:
         samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
@@ -55,14 +65,19 @@ class Transcriber:
         if len(self.buffer) < self.sample_rate:
             return [], []
 
-        segments, _ = self.model.transcribe(
-            self.buffer,
+        # Build transcribe kwargs
+        transcribe_kwargs = dict(
             beam_size=1,
             language="en",
             word_timestamps=True,
             vad_filter=True,
             condition_on_previous_text=False,
         )
+        # Add hotwords if set (boosts recognition of slide-specific terms)
+        if self.hotwords:
+            transcribe_kwargs["hotwords"] = self.hotwords
+
+        segments, _ = self.model.transcribe(self.buffer, **transcribe_kwargs)
 
         words = []
         for seg in segments:

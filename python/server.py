@@ -6,6 +6,7 @@ import sys
 import json
 import base64
 import time
+import re
 from dataclasses import dataclass
 from enum import Enum
 
@@ -44,10 +45,31 @@ from config import (
 from logger import get_logger
 from runtime import setup_cuda_dlls
 from audio import Transcriber
-from slides import Slide, SlideMatcher
+from slides import Slide, SlideMatcher, extract_hotwords
 from triggers import detect_trigger, TriggerAction
 
 log = get_logger("server")
+
+_WORD_WRAP_RE = re.compile(r"^([^A-Za-z0-9]*)([A-Za-z0-9']+)([^A-Za-z0-9]*)$")
+
+
+def _force_torgal(word: str) -> str:
+    """Force common ASR variants into the proper name: Torgal."""
+    if not word:
+        return word
+    match = _WORD_WRAP_RE.match(word)
+    if not match:
+        return word
+    lead, core, tail = match.groups()
+    core_lower = core.lower()
+    if core_lower.startswith("tor") or core_lower.endswith("orgo") or core_lower.endswith("orgal") or core_lower.startswith("twer")  :
+        core = "Torgal"
+    return f"{lead}{core}{tail}"
+
+
+def _normalize_words(words: list[str]) -> list[str]:
+    return words
+    # return [_force_torgal(w) for w in words] // Currently disabled for prod
 
 # Runtime toggles (can be updated via IPC)
 QA_MODE_STATE = QA_MODE
@@ -293,6 +315,8 @@ def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandS
 
     confirmed = [w for w in confirmed if w and w.strip()]
     partial = [w for w in partial if w and w.strip()]
+    confirmed = _normalize_words(confirmed)
+    partial = _normalize_words(partial)
 
     if confirmed:
         log(f"CONFIRMED: {' '.join(confirmed)}")
@@ -343,7 +367,7 @@ def handle_audio(msg, transcriber, matcher, text_window, command_state: CommandS
             speech_state.last_partial_ts = 0.0
 
 
-def handle_load_slides(msg, text_window):
+def handle_load_slides(msg, text_window, transcriber=None):
     log("=" * 50)
     log("LOADING SLIDES")
     log("=" * 50)
@@ -361,6 +385,12 @@ def handle_load_slides(msg, text_window):
         Slide(i, s.get("title", f"Slide {i + 1}"), s.get("content", ""))
         for i, s in enumerate(slides_data)
     ]
+    
+    # Extract hotwords from slides and set on transcriber
+    if transcriber:
+        hotwords = extract_hotwords(slides)
+        transcriber.set_hotwords(hotwords)
+    
     matcher = SlideMatcher(slides=slides, qa_mode=QA_MODE_STATE)
     text_window.clear()
     log(f"SlideMatcher created with {len(slides)} slides")
@@ -396,7 +426,7 @@ def main():
                 handle_audio(msg, transcriber, matcher, text_window, command_state, speech_state)
 
             elif msg["type"] == IpcType.LOAD_SLIDES.value:
-                matcher = handle_load_slides(msg, text_window)
+                matcher = handle_load_slides(msg, text_window, transcriber)
 
             elif msg["type"] == IpcType.GOTO_SLIDE.value:
                 if matcher:
