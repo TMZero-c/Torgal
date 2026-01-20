@@ -41,7 +41,10 @@ NAMESPACE_BIN_EXTS = {'.dll', '.so', '.dylib'}
 
 def collect_namespace_binary_opts(module_name):
     """Collect native libs from namespace-style packages (e.g., NVIDIA CUDA wheels)."""
-    spec = find_spec(module_name)
+    try:
+        spec = find_spec(module_name)
+    except ModuleNotFoundError:
+        return []
     if spec is None or spec.submodule_search_locations is None:
         return []
 

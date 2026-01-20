@@ -23,13 +23,6 @@
       },
       "makers": [
         {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "Torgal",
-            "setupExe": "TorgalSetup.exe"
-          }
-        },
-        {
           "name": "@electron-forge/maker-zip",
           "platforms": [
             "win32"
