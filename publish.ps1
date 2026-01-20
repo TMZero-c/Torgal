@@ -46,12 +46,17 @@ function Get-AssetPaths {
 
     $zipName = "torgal-win32-x64-$Version-$BuildVariant.zip"
     $zipPath = Join-Path $zipDir $zipName
+
+    $parts = Get-ChildItem -Path $zipDir -Filter "torgal-win32-x64-$Version-$BuildVariant.zip.part*" -ErrorAction SilentlyContinue
+
     if (Test-Path $zipPath) {
-        $assets += $zipPath
+        $zipSize = (Get-Item $zipPath).Length
+        if ($zipSize -le 2GB) {
+            $assets += $zipPath
+        }
     }
 
     # Include split parts if they exist
-    $parts = Get-ChildItem -Path $zipDir -Filter "torgal-win32-x64-$Version-$BuildVariant.zip.part*" -ErrorAction SilentlyContinue
     foreach ($p in $parts) {
         $assets += $p.FullName
     }
@@ -123,11 +128,18 @@ function Ensure-ReleaseAssets {
 $version = Get-Version
 $tag = "v$version"
 
-# Skip if version tag already exists
+# Check if tag and release already exist
 $existingTag = git tag --list $tag
-if ($existingTag) {
-    Write-Host "[INFO] Tag $tag already exists. Nothing to publish." -ForegroundColor Yellow
-    exit 0
+$releaseExists = $false
+try {
+    & gh release view $tag *> $null
+    if ($LASTEXITCODE -eq 0) { $releaseExists = $true }
+} catch {
+    $releaseExists = $false
+}
+
+if ($releaseExists) {
+    Write-Host "[INFO] Release $tag already exists. Uploading assets..." -ForegroundColor Yellow
 }
 
 # Build if needed
@@ -156,8 +168,17 @@ if ($assets.Count -eq 0) {
     throw "No release assets found. Ensure builds exist in app/out/make-*/zip/win32/x64"
 }
 
-# Create git tag
-git tag $tag
+# Upload assets to existing release
+if ($releaseExists) {
+    & gh release upload $tag $assets --clobber
+    Write-Host "[OK] Uploaded assets to $tag." -ForegroundColor Green
+    exit 0
+}
+
+# Create git tag if missing
+if (-not $existingTag) {
+    git tag $tag
+}
 
 # Build gh release create args
 $ghArgs = @("release", "create", $tag)
