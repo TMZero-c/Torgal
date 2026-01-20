@@ -10,29 +10,29 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="left-panel">
-            <div class="slide-preview">
+    <div class="container ui-row">
+        <div class="left-panel ui-stack">
+            <div class="slide-preview ui-center">
                 <img id="preview-img" src="" alt="Current Slide">
-                <div id="placeholder" class="placeholder">
-                    <div class="placeholder-content">
+                <div id="placeholder" class="placeholder ui-stack ui-center">
+                    <div class="placeholder-content ui-text-dim">
                         <p>No presentation loaded</p>
-                        <p class="placeholder-subtext">Click "Upload Presentation" to begin</p>
+                        <p class="placeholder-subtext ui-text-sm ui-text-subtle">Click "Upload Presentation" to begin</p>
                     </div>
                 </div>
             </div>
 
-            <div class="controls">
-                <button id="upload-btn">Upload Presentation</button>
-                <button id="pause-btn" title="Pause/Resume audio processing" disabled>Pause</button>
-                <div class="mode-toggle">
-                    <label class="toggle-label">
-                        <span class="toggle-text" id="mode-text">Presenting</span>
+            <div class="controls ui-row ui-align-center ui-gap-md">
+                <button id="upload-btn" class="ui-button">Upload Presentation</button>
+                <button id="pause-btn" class="ui-button" title="Pause/Resume audio processing" disabled>Pause</button>
+                <div class="mode-toggle ui-row ui-align-center">
+                    <label class="toggle-label ui-row ui-align-center ui-gap-sm">
+                        <span class="toggle-text ui-text-sm ui-weight-medium ui-text-muted" id="mode-text">Presenting</span>
                         <input type="checkbox" id="qa-mode-toggle" class="toggle-checkbox">
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-                <div class="slide-counter"><span id="slide-number">0 / 0</span></div>
+                <div class="slide-counter ui-text-sm ui-text-muted"><span id="slide-number">0 / 0</span></div>
             </div>
 
             <div class="thumbnails-grid" id="thumbnails-grid">
@@ -40,92 +40,92 @@
             </div>
         </div>
 
-        <div class="right-panel">
+        <div class="right-panel ui-stack">
 
-            <div class="intent-card">
-                <h4>Decision Analytics</h4>
-                <div class="decision-summary">
-                    <div class="decision-row">
-                        <span class="decision-label">Confidence</span>
-                        <span class="decision-value" id="decision-confidence">—</span>
-                        <span class="decision-label">Threshold</span>
-                        <span class="decision-value" id="decision-threshold">—</span>
-                        <span class="decision-label">Diff</span>
-                        <span class="decision-value" id="decision-diff">—</span>
+            <div class="intent-card ui-card">
+                <h4 class="ui-title">Decision Analytics</h4>
+                <div class="decision-summary ui-stack ui-gap-tight">
+                    <div class="decision-row ui-row ui-align-center ui-gap-sm ui-text-sm ui-text-body">
+                        <span class="decision-label ui-text-xxs ui-uppercase ui-text-dim">Confidence</span>
+                        <span class="decision-value ui-text-sm ui-text-body" id="decision-confidence">—</span>
+                        <span class="decision-label ui-text-xxs ui-uppercase ui-text-dim">Threshold</span>
+                        <span class="decision-value ui-text-sm ui-text-body" id="decision-threshold">—</span>
+                        <span class="decision-label ui-text-xxs ui-uppercase ui-text-dim">Diff</span>
+                        <span class="decision-value ui-text-sm ui-text-body" id="decision-diff">—</span>
                     </div>
                 </div>
-                <div class="option-compare">
+                <div class="option-compare ui-stack ui-gap-sm">
                     <div class="option-row" id="option-prev-row">
-                        <div class="option-name" id="option-prev-label">Prev</div>
+                        <div class="option-name ui-text-muted ui-ellipsis" id="option-prev-label">Prev</div>
                         <div class="option-bar">
                             <div class="option-threshold" id="option-prev-threshold"></div>
                             <div class="option-fill" id="option-prev-fill"></div>
                         </div>
-                        <div class="option-value" id="option-prev-value">0%</div>
+                        <div class="option-value ui-text-muted" id="option-prev-value">0%</div>
                     </div>
                     <div class="option-row" id="option-current-row">
-                        <div class="option-name" id="option-current-label">Current</div>
+                        <div class="option-name ui-text-muted ui-ellipsis" id="option-current-label">Current</div>
                         <div class="option-bar">
                             <div class="option-threshold" id="option-current-threshold"></div>
                             <div class="option-fill" id="option-current-fill"></div>
                         </div>
-                        <div class="option-value" id="option-current-value">0%</div>
+                        <div class="option-value ui-text-muted" id="option-current-value">0%</div>
                     </div>
                     <div class="option-row" id="option-next-row">
-                        <div class="option-name" id="option-next-label">Next</div>
+                        <div class="option-name ui-text-muted ui-ellipsis" id="option-next-label">Next</div>
                         <div class="option-bar">
                             <div class="option-threshold" id="option-next-threshold"></div>
                             <div class="option-fill" id="option-next-fill"></div>
                         </div>
-                        <div class="option-value" id="option-next-value">0%</div>
+                        <div class="option-value ui-text-muted" id="option-next-value">0%</div>
                     </div>
                 </div>
             </div>
 
-            <div class="stats-container">
-                <div class="stat-card decision-card">
-                    <h4>Leading Decision</h4>
-                    <div class="intent-label" id="intent-label">Listening...</div>
+            <div class="stats-container ui-grid-2">
+                <div class="stat-card decision-card ui-card ui-stack ui-gap-tight">
+                    <h4 class="ui-title">Leading Decision</h4>
+                    <div class="intent-label ui-text-lg ui-text-accent ui-weight-semibold" id="intent-label">Listening...</div>
                 </div>
                 <!--
-                <div class="stat-card">
-                    <h4>Slides Matched</h4>
-                    <div class="stat-value" id="slides-matched">0</div>
-                    <div class="stat-detail">Total transitions</div>
+                <div class="stat-card ui-card ui-stack ui-gap-tight">
+                    <h4 class="ui-title">Slides Matched</h4>
+                    <div class="stat-value ui-text-xl ui-text-accent ui-weight-semibold" id="slides-matched">0</div>
+                    <div class="stat-detail ui-text-sm ui-text-muted">Total transitions</div>
                 </div>
             -->
                 <!--
-                <div class="stat-card">
-                    <h4>Current Slide</h4>
-                    <div class="stat-value" id="current-slide-num">1</div>
-                    <div class="stat-detail">of <span id="total-slides">0</span></div>
+                <div class="stat-card ui-card ui-stack ui-gap-tight">
+                    <h4 class="ui-title">Current Slide</h4>
+                    <div class="stat-value ui-text-xl ui-text-accent ui-weight-semibold" id="current-slide-num">1</div>
+                    <div class="stat-detail ui-text-sm ui-text-muted">of <span id="total-slides">0</span></div>
                 </div>
             -->
-                <div class="stat-card">
-                    <h4>Intent-Changing Phrase</h4>
-                    <div id="keywords-impact-container" class="keywords-impact">
-                        <span class="stat-detail">Waiting for phrase...</span>
+                <div class="stat-card ui-card ui-stack ui-gap-tight">
+                    <h4 class="ui-title">Intent-Changing Phrase</h4>
+                    <div id="keywords-impact-container" class="keywords-impact ui-row ui-align-center ui-gap-sm">
+                        <span class="stat-detail ui-text-sm ui-text-muted">Waiting for phrase...</span>
                     </div>
                 </div>
             </div>
 
             <!--
-            <div class="intent-card">
-                <h4>Detected Keywords</h4>
-                <div id="keywords-container" class="keyword-highlights">
-                    <span class="stat-detail">None detected</span>
+            <div class="intent-card ui-card">
+                <h4 class="ui-title">Detected Keywords</h4>
+                <div id="keywords-container" class="keyword-highlights ui-row ui-gap-sm">
+                    <span class="stat-detail ui-text-sm ui-text-muted">None detected</span>
                 </div>
             </div>
         -->
 
-            <div class="listening-card">
-                <h4>Incoming Speech</h4>
-                <div id="transcript-partial" class="transcript-text partial">Listening...</div>
+            <div class="listening-card ui-card ui-card--tight">
+                <h4 class="ui-title">Incoming Speech</h4>
+                <div id="transcript-partial" class="transcript-text partial ui-text-md ui-text-body">Listening...</div>
             </div>
 
-            <div class="transcript-panel" id="transcript-panel">
-                <h4 class="transcript-header">Transcript</h4>
-                <div id="transcript-final" class="transcript-text"></div>
+            <div class="transcript-panel ui-card ui-stack" id="transcript-panel">
+                <h4 class="transcript-header ui-title">Transcript</h4>
+                <div id="transcript-final" class="transcript-text ui-text-md ui-text-body"></div>
             </div>
         </div>
     </div>

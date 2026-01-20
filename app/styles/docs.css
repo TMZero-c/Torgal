@@ -1,0 +1,118 @@
+@import url('tokens.css');
+@import url('utilities.css');
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    background: var(--color-bg-app);
+    color: var(--color-text);
+    line-height: var(--line-normal);
+}
+
+.page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: var(--space-xl);
+}
+
+.hero {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+h1 {
+    font-size: 18px;
+    text-transform: uppercase;
+    color: var(--color-text);
+    letter-spacing: 0.4px;
+}
+
+.subtitle {
+    color: var(--color-text-muted);
+    font-size: 12px;
+}
+
+h2 {
+    margin-bottom: var(--space-sm);
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--color-text-subtle);
+    letter-spacing: 0.4px;
+}
+
+h3 {
+    margin-top: 12px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    letter-spacing: 0.3px;
+}
+
+p {
+    margin-bottom: var(--space-md);
+    font-size: 13px;
+    color: var(--color-text-body);
+}
+
+ul {
+    margin-left: 18px;
+    margin-bottom: var(--space-md);
+}
+
+li {
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--color-text-body);
+}
+
+a {
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.toc {
+    border: 1px solid var(--color-bg-panel-border);
+}
+
+.toc h2 {
+    margin-top: 0;
+}
+
+.doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    color: var(--color-text-body);
+}
+
+.doc-table th,
+.doc-table td {
+    border: 1px solid var(--color-border);
+    padding: var(--space-sm) var(--space-md);
+    text-align: left;
+    vertical-align: top;
+}
+
+.doc-table th {
+    background: var(--color-bg-panel-alt);
+    color: var(--color-table-header-text);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-size: 11px;
+}
+
+.doc-table tr:nth-child(even) td {
+    background: var(--color-table-stripe);
+}
+

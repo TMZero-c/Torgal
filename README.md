@@ -138,6 +138,7 @@ Output:
 GPU builds are large and can exceed GitHub’s 2 GB per-asset limit. If you upload to Releases, split the zip into multiple parts and upload each part separately.
 
 ## Future plans
+
 - Performance optimizations for CPU mode (faster embeddings, lighter default models, smarter caching)
 - Bug fixes and stability improvements across Windows builds
 - Live transcript text highlighting on the active slide

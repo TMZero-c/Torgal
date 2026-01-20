@@ -46,8 +46,8 @@ function generateUI() {
     const buttonRow = document.createElement('div');
     buttonRow.className = 'button-row';
     buttonRow.innerHTML = `
-        <button id="cancelBtn" class="secondary">Cancel</button>
-        <button id="saveBtn">Save & Restart</button>
+        <button id="cancelBtn" class="ui-button ui-button--secondary">Cancel</button>
+        <button id="saveBtn" class="ui-button">Save & Restart</button>
     `;
     contentContainer.appendChild(buttonRow);
 
@@ -72,7 +72,8 @@ function createSection(section) {
     }
 
     const sectionEl = document.createElement('div');
-    sectionEl.className = 'section' + (section.style === 'warning' ? ' warning' : '');
+    const warningClass = section.style === 'warning' ? ' ui-card--warning' : '';
+    sectionEl.className = `section ui-card${warningClass}`;
 
     // Title
     const title = document.createElement('h2');
@@ -129,6 +130,7 @@ function createField(field) {
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.id = field.id;
+        input.className = 'ui-checkbox';
         label.appendChild(input);
         label.appendChild(document.createTextNode(' ' + field.label));
         group.appendChild(label);
@@ -145,6 +147,7 @@ function createField(field) {
             const input = document.createElement('input');
             input.type = 'number';
             input.id = field.id;
+            input.className = 'ui-input';
             if (field.min !== undefined) input.min = field.min;
             if (field.max !== undefined) input.max = field.max;
             if (field.step !== undefined) input.step = field.step;
@@ -153,6 +156,7 @@ function createField(field) {
             const input = document.createElement('input');
             input.type = 'text';
             input.id = field.id;
+            input.className = 'ui-input';
             group.appendChild(input);
         }
     }
@@ -174,6 +178,7 @@ function createField(field) {
 function createSelect(field) {
     const select = document.createElement('select');
     select.id = field.id;
+    select.className = 'ui-select';
 
     if (field.optgroups) {
         // Has option groups

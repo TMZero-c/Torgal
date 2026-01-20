@@ -204,6 +204,7 @@ let python = null;
 let presenterWin = null;
 let slideshowWin = null;
 let preferencesWin = null;
+let docsWin = null;
 
 // Track if we're currently processing a presentation to pause audio
 let isPresentationLoading = false;
@@ -579,6 +580,34 @@ function openPreferences() {
   });
 }
 
+function openDocumentation() {
+  if (docsWin && !docsWin.isDestroyed()) {
+    docsWin.focus();
+    return;
+  }
+
+  docsWin = new BrowserWindow({
+    width: 900,
+    height: 700,
+    parent: presenterWin,
+    modal: false,
+    resizable: true,
+    icon: path.join(__dirname, 'assets/IMPORTANT.png'),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  docsWin.loadFile(path.join(__dirname, 'docs.html'));
+  docsWin.setTitle('Torgal Documentation');
+  docsWin.setMenuBarVisibility(false);
+
+  docsWin.on('closed', () => {
+    docsWin = null;
+  });
+}
+
 function createMenu() {
   const isMac = process.platform === 'darwin';
 
@@ -676,6 +705,10 @@ function createMenu() {
     {
       label: 'Help',
       submenu: [
+        {
+          label: 'Documentation',
+          click: openDocumentation
+        },
         {
           label: 'About Torgal',
           click: () => {

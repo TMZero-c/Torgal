@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self'; style-src 'self' 'unsafe-inline';">
+    <title>Torgal Documentation</title>
+    <link rel="stylesheet" href="styles/docs.css">
+</head>
+
+<body>
+    <div class="page">
+        <header class="hero ui-card">
+            <h1>Torgal Documentation</h1>
+            <p class="subtitle">Formal reference for features, behavior, and development.</p>
+        </header>
+
+        <nav class="toc ui-card">
+            <h2>Contents</h2>
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#user-guide">User guide</a></li>
+                <li><a href="#presenter-window">Presenter window</a></li>
+                <li><a href="#slideshow-window">Slideshow window</a></li>
+                <li><a href="#upload-parse">Upload and slide parsing</a></li>
+                <li><a href="#voice-commands">Voice commands</a></li>
+                <li><a href="#matching">Matching and analytics</a></li>
+                <li><a href="#qa-mode">Q&A mode</a></li>
+                <li><a href="#preferences">Preferences reference</a></li>
+                <li><a href="#nuclear">Nuclear options</a></li>
+                <li><a href="#cache">Model cache</a></li>
+                <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+                <li><a href="#cpu-gpu">CPU vs GPU performance</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+                <li><a href="#dev-reference">Developer reference</a></li>
+                <li><a href="#ipc-reference">IPC reference</a></li>
+                <li><a href="#settings-storage">Settings storage</a></li>
+                <li><a href="#privacy">Privacy</a></li>
+            </ul>
+        </nav>
+
+        <section id="overview" class="ui-card">
+            <h2>Overview</h2>
+            <p>
+                Torgal is a local-first presenter assistant. It captures microphone audio, transcribes speech on-device,
+                and uses semantic matching to decide when to advance slides.
+            </p>
+            <ul>
+                <li>Electron provides the presenter UI and slideshow window.</li>
+                <li>Python handles transcription, embeddings, and matching.</li>
+                <li>All processing runs on-device unless you choose to share data.</li>
+            </ul>
+            <p>
+                Data flow is intentionally modular: audio and UI remain in Electron, while ML logic runs in Python. Each
+                stage (capture, transcription, matching, transition) can be tuned independently.
+            </p>
+            <p class="ui-callout">
+                This documentation is structured by feature and subsystem. Use the table of contents to jump directly
+                to the area you are working on.
+            </p>
+        </section>
+
+        <section id="user-guide" class="ui-card">
+            <h2>User guide</h2>
+            <ol>
+                <li>Launch Torgal and allow microphone access.</li>
+                <li>Click Upload Presentation and select a PDF (PPTX may work but PDF is most reliable).</li>
+                <li>Wait for slide parsing and embedding to finish.</li>
+                <li>Start speaking; Torgal advances when intent confidence exceeds the threshold.</li>
+                <li>Use Pause to temporarily stop audio processing and reset context.</li>
+                <li>Use Q&A mode for global matching across all slides.</li>
+            </ol>
+            <p class="ui-callout">
+                On first run, model downloads can take time. If you see a loading state, keep the app open until the
+                models finish downloading.
+            </p>
+        </section>
+
+        <section id="presenter-window" class="ui-card">
+            <h2>Presenter window</h2>
+            <ul>
+                <li><strong>Slide preview</strong>: current slide image with a placeholder when no deck is loaded.</li>
+                <li><strong>Upload</strong>: opens the file picker for PDF or PPTX.</li>
+                <li><strong>Pause</strong>: stops audio processing and resets matching context.</li>
+                <li><strong>Q&A toggle</strong>: enables global matching mode.</li>
+                <li><strong>Slide counter</strong>: current slide index and total slides.</li>
+                <li><strong>Thumbnails</strong>: quick navigation and preview within the presenter view.</li>
+                <li><strong>Decision analytics</strong>: confidence, threshold, diff, and candidate bars.</li>
+                <li><strong>Incoming speech</strong>: partial transcription while speaking.</li>
+                <li><strong>Transcript</strong>: finalized text used for matching.</li>
+            </ul>
+            <p class="ui-callout">
+                Thumbnail clicks update the preview. Actual transitions are driven by voice and matching decisions.
+            </p>
+            <p>
+                When a deck is loading, audio is paused and the transcript panel shows status updates. Once embeddings
+                finish, the app resumes listening automatically.
+            </p>
+        </section>
+
+        <section id="slideshow-window" class="ui-card">
+            <h2>Slideshow window</h2>
+            <p>
+                The slideshow window opens automatically when a presentation is loaded. If a second display is
+                available, the window moves there and goes full screen. The slideshow advances only when a transition
+                is triggered by voice or explicit commands.
+            </p>
+            <p>
+                On single-display setups, the slideshow stays windowed and can be positioned manually.
+            </p>
+        </section>
+
+        <section id="upload-parse" class="ui-card">
+            <h2>Upload and slide parsing</h2>
+            <ul>
+                <li>PDF is the most reliable format.</li>
+                <li>PPTX can be selected, but if it fails, export to PDF and retry.</li>
+                <li>Slides are rendered to images and text is extracted for matching.</li>
+            </ul>
+            <p>
+                Parsing runs in a short-lived Python process. Audio is paused during parsing to avoid false transitions,
+                and the matching context is reset once the new deck is loaded.
+            </p>
+        </section>
+
+        <section id="voice-commands" class="ui-card">
+            <h2>Voice commands</h2>
+            <p>Voice commands are detected before embeddings for immediate control.</p>
+            <ul>
+                <li>Next slide, previous slide</li>
+                <li>Slide 5, go to slide 5</li>
+                <li>First slide, last slide</li>
+            </ul>
+            <p>
+                Slide numbers are one-based in speech. Saying “slide 1” moves to the first slide.
+            </p>
+        </section>
+
+        <section id="matching" class="ui-card">
+            <h2>Matching and analytics</h2>
+            <p>
+                Torgal compares speech embeddings against slide embeddings and applies keyword/title boosts. By default,
+                it considers the current slide and its neighbors for stable transitions.
+            </p>
+            <ul>
+                <li><strong>Window words</strong>: how much recent speech is considered.</li>
+                <li><strong>Cooldown words</strong>: minimum words between transitions.</li>
+                <li><strong>Match threshold</strong>: minimum confidence to trigger a change.</li>
+                <li><strong>Match difference</strong>: required gap vs the current slide.</li>
+                <li><strong>Stay/forward/back bias</strong>: how eager the matcher is to move.</li>
+                <li><strong>Intent-changing phrase</strong>: phrase most responsible for the current intent shift.</li>
+            </ul>
+            <p>
+                Partial matching can trigger early transitions while you speak. It is useful for responsiveness but can
+                increase CPU usage.
+            </p>
+            <div class="ui-callout ui-callout--info">
+                Example: if your talk is closely scripted, you can lower the threshold slightly and keep the stay bias
+                low. For ad‑lib talks, raise the threshold and increase stay bias to prevent jumps.
+            </div>
+        </section>
+
+        <section id="qa-mode" class="ui-card">
+            <h2>Q&A mode</h2>
+            <p>
+                Q&A mode enables global matching across all slides. It is useful for open-ended questions that jump to
+                non-adjacent topics.
+            </p>
+            <p>
+                Q&A mode uses its own thresholds and window size. You can tune these in Preferences under Advanced.
+            </p>
+        </section>
+
+        <section id="preferences" class="ui-card">
+            <h2>Preferences reference</h2>
+            <p>
+                Preferences are organized by tab. Saving restarts the app to apply settings.
+            </p>
+
+            <h3>Audio</h3>
+            <ul>
+                <li><strong>Sample Rate</strong>: lower reduces CPU load; 16kHz is optimal for Whisper.</li>
+                <li><strong>Chunk Size</strong>: smaller is more responsive but uses more CPU.</li>
+                <li><strong>Silence Threshold</strong>: gates what is considered silence.</li>
+                <li><strong>Smoothing</strong>: stabilizes silence detection.</li>
+                <li><strong>Audio Buffer</strong>: larger buffers give more context but add latency.</li>
+            </ul>
+            <p>
+                If you hear delays in transitions, start by reducing buffer size and chunk size. If you hear choppy
+                partial text, increase smoothing slightly.
+            </p>
+
+            <h3>Matching</h3>
+            <ul>
+                <li><strong>Match Threshold</strong>: minimum similarity to trigger a transition.</li>
+                <li><strong>Cooldown Words</strong>: spacing between transitions.</li>
+                <li><strong>Match Difference</strong>: required gap versus the current slide.</li>
+                <li><strong>Window Words</strong>: how many words are used for matching.</li>
+                <li><strong>Stay / Forward / Back Bias</strong>: preferences for local slides.</li>
+            </ul>
+            <p>
+                To reduce accidental jumps, raise the threshold and increase the stay bias. To make the app more eager
+                to advance, lower the threshold and increase forward bias slightly.
+            </p>
+
+            <h3>Models</h3>
+            <ul>
+                <li><strong>Whisper Model</strong>: accuracy vs speed and download size.</li>
+                <li><strong>Beam Size</strong>: higher can improve accuracy, especially for smaller models.</li>
+                <li><strong>Compute Device</strong>: CUDA for NVIDIA GPUs, CPU otherwise.</li>
+                <li><strong>Compute Type</strong>: float16 for GPU, int8 for CPU.</li>
+                <li><strong>Embedding Model</strong>: affects semantic quality and memory usage.</li>
+                <li><strong>Embedding Device</strong>: auto, CUDA, or CPU.</li>
+                <li><strong>Sentence Embeddings</strong>: improves bullet-level accuracy at higher cost.</li>
+                <li><strong>Transcription Filtering</strong>: removes duplicates, punctuation, and short garbage tokens.</li>
+                <li><strong>Batch Beam Size</strong>: used when batch audio mode is enabled.</li>
+            </ul>
+            <p>
+                Smaller models are recommended for CPU-only devices. GPU devices can usually run higher-quality models
+                without breaking real-time performance.
+            </p>
+
+            <h3>Advanced</h3>
+            <ul>
+                <li><strong>Voice Commands</strong>: cooldown and tail-word detection.</li>
+                <li><strong>Partial Matching</strong>: faster response while speaking, higher CPU usage.</li>
+                <li><strong>Q&A overrides</strong>: higher thresholds and larger windows for global matching.</li>
+                <li><strong>Reset</strong>: restores all defaults and restarts the app.</li>
+            </ul>
+
+            <p class="ui-callout">
+                GPU-only options are hidden automatically when CUDA is not available.
+            </p>
+        </section>
+
+        <section id="nuclear" class="ui-card">
+            <h2>Nuclear options</h2>
+            <div class="ui-callout ui-callout--warning">
+                <p>
+                    These settings are for machines where real-time performance is not possible. They reduce accuracy
+                    to keep the app responsive.
+                </p>
+            </div>
+            <ul>
+                <li><strong>Batch Audio Mode</strong>: processes audio in large intervals instead of streaming.</li>
+                <li><strong>Batch Interval</strong>: higher values reduce CPU at the cost of more delay.</li>
+                <li><strong>Keyword-only Matching</strong>: skips embeddings entirely and uses keyword overlap only.</li>
+            </ul>
+            <p>
+                Recommended order: first lower model sizes, then enable batch audio, then enable keyword-only matching
+                if necessary.
+            </p>
+        </section>
+
+        <section id="tuning-recipes" class="ui-card">
+            <h2>Tuning recipes</h2>
+            <table class="doc-table">
+                <thead>
+                    <tr>
+                        <th>Goal</th>
+                        <th>Recommended changes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Reduce accidental jumps</td>
+                        <td>Raise Match Threshold, increase Stay Bias, increase Cooldown Words</td>
+                    </tr>
+                    <tr>
+                        <td>Make transitions faster</td>
+                        <td>Lower Match Threshold, reduce Audio Buffer, enable Partial Matching</td>
+                    </tr>
+                    <tr>
+                        <td>CPU performance rescue</td>
+                        <td>Use smaller Whisper and embedding models, enable Batch Audio, then Keyword-only Matching</td>
+                    </tr>
+                    <tr>
+                        <td>Q&A navigation</td>
+                        <td>Enable Q&A Mode, increase Q&A Window Words, slightly raise Q&A Threshold</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="cache" class="ui-card">
+            <h2>Model cache</h2>
+            <ul>
+                <li>Model files are downloaded on first run and stored in the HuggingFace cache.</li>
+                <li>The Preferences window lets you open the cache folder or clear it.</li>
+            </ul>
+            <p>
+                Clearing the cache frees disk space but forces a re-download the next time those models are used.
+            </p>
+        </section>
+
+        <section id="shortcuts" class="ui-card">
+            <h2>Keyboard shortcuts</h2>
+            <ul>
+                <li><strong>Left Arrow</strong>: previous slide in the presenter preview.</li>
+                <li><strong>Right Arrow</strong>: next slide in the presenter preview.</li>
+            </ul>
+        </section>
+
+        <section id="cpu-gpu" class="ui-card">
+            <h2>CPU vs GPU performance</h2>
+            <ul>
+                <li>GPU mode is designed for real-time use and larger models.</li>
+                <li>CPU mode can be significantly slower without smaller models or nuclear options.</li>
+                <li>If CPU is lagging, choose smaller models and enable batch audio or keyword-only matching.</li>
+            </ul>
+            <p>
+                If GPU is available but not detected, confirm that CUDA drivers and a compatible PyTorch build are
+                installed in the Python environment used by Torgal.
+            </p>
+        </section>
+
+        <section id="troubleshooting" class="ui-card">
+            <h2>Troubleshooting</h2>
+            <ul>
+                <li><strong>No audio</strong>: check microphone permissions and system input device.</li>
+                <li><strong>Late transitions</strong>: reduce buffer size or enable partial matching.</li>
+                <li><strong>Too many jumps</strong>: raise threshold or increase stay bias.</li>
+                <li><strong>CPU overloaded</strong>: reduce model size or enable nuclear options.</li>
+                <li><strong>CUDA missing</strong>: install NVIDIA drivers and a compatible CUDA build of PyTorch.</li>
+            </ul>
+            <p>
+                If slides do not load, check the console for parser errors and retry with a PDF export of the deck.
+            </p>
+        </section>
+
+        <section id="dev-reference" class="ui-card">
+            <h2>Developer reference</h2>
+            <p>
+                Torgal is split into a UI layer (Electron) and a local ML backend (Python). The design is modular so
+                each subsystem can be adjusted independently.
+            </p>
+            <ul>
+                <li><strong>Electron main process</strong>: <code>app/main.js</code></li>
+                <li><strong>Presenter UI</strong>: <code>app/index.html</code>, <code>app/renderer.js</code></li>
+                <li><strong>Slideshow UI</strong>: <code>app/slideshow.html</code>, <code>app/slideshow.js</code></li>
+                <li><strong>Preload bridges</strong>: <code>app/preload.js</code>, <code>app/preload-prefs.js</code></li>
+                <li><strong>Preferences</strong>: <code>app/preferences.html</code>, <code>app/preferences.js</code>, <code>app/prefs-schema.js</code></li>
+                <li><strong>Settings store</strong>: <code>app/store.js</code></li>
+                <li><strong>Python server</strong>: <code>python/server.py</code></li>
+                <li><strong>Slide parsing</strong>: <code>python/parse_slides.py</code></li>
+                <li><strong>Matching logic</strong>: <code>python/slides.py</code></li>
+                <li><strong>Embedding loading</strong>: <code>python/embeddings.py</code></li>
+                <li><strong>Audio pipeline</strong>: <code>python/audio.py</code></li>
+                <li><strong>Runtime config</strong>: <code>python/config.py</code></li>
+            </ul>
+            <p>
+                The preferences UI is schema-driven. Add new settings in <code>app/prefs-schema.js</code>, then
+                reference them in <code>app/main.js</code> to pass values into the Python environment.
+            </p>
+            <div class="ui-callout ui-callout--info">
+                <p class="ui-text-sm ui-text-body ui-weight-semibold">Adding a new setting (quick steps)</p>
+                <ol class="ui-text-sm ui-text-body">
+                    <li>Add the field to <code>app/prefs-schema.js</code> with default and help text.</li>
+                    <li>Update <code>app/main.js</code> to pass it into the Python environment.</li>
+                    <li>Read it in <code>python/config.py</code> via the TORGAL_ environment variables.</li>
+                </ol>
+            </div>
+        </section>
+
+        <section id="ipc-reference" class="ui-card">
+            <h2>IPC reference</h2>
+            <h3>Renderer → Main (Electron)</h3>
+            <ul>
+                <li><code>audio-chunk</code>: stream audio chunk (base64 PCM16 or { data, rms, silent }).</li>
+                <li><code>reset</code>: reset matching state.</li>
+                <li><code>goto-slide</code>: set current slide index.</li>
+                <li><code>set-qa-mode</code>: toggle Q&A mode.</li>
+                <li><code>toggle-audio-pause</code>: pause or resume audio processing.</li>
+                <li><code>dialog:openFile</code>: open file picker for PDF/PPTX.</li>
+            </ul>
+
+            <h3>Main → Renderer</h3>
+            <ul>
+                <li><code>slides-loaded</code>: slide data (images + text) after parsing.</li>
+                <li><code>transcript</code>: Python messages (ready, partial, final, match_eval, slide_transition).</li>
+                <li><code>pause-audio</code>: pause when loading a new deck.</li>
+                <li><code>settings-loaded</code>: current settings on startup.</li>
+                <li><code>python-error</code>: stderr or spawn errors from Python.</li>
+                <li><code>transcript</code> with status payloads: model_loading, model_ready, slides_processing,
+                    slides_ready, slides_failed, embedding_model_loading, slides_embedded.</li>
+            </ul>
+
+            <h3>Main ↔ Python (stdin/stdout)</h3>
+            <ul>
+                <li>To Python: <code>audio</code>, <code>load_slides</code>, <code>goto_slide</code>, <code>reset</code>, <code>set_qa_mode</code></li>
+                <li>From Python: <code>ready</code>, <code>partial</code>, <code>final</code>, <code>match_eval</code>,
+                    <code>slide_transition</code>, <code>slides_ready</code>, <code>slide_set</code>,
+                    <code>reset_done</code>, <code>embedding_model_loading</code>
+                </li>
+            </ul>
+            <p>
+                The Python server streams newline-delimited JSON. The renderer listens on the <code>transcript</code>
+                channel and updates the UI for both speech and analytics.
+            </p>
+        </section>
+
+        <section id="settings-storage" class="ui-card">
+            <h2>Settings storage</h2>
+            <ul>
+                <li>Settings are persisted as JSON in the Electron user data directory.</li>
+                <li>File name: <code>torgal-settings.json</code>.</li>
+                <li>Defaults are defined in <code>app/prefs-schema.js</code>.</li>
+            </ul>
+            <p>
+                If settings appear corrupted, delete the JSON file to reset to defaults.
+            </p>
+        </section>
+
+        <section id="privacy" class="ui-card">
+            <h2>Privacy</h2>
+            <p>
+                Torgal runs locally. Audio and slides stay on-device unless you choose to share them.
+            </p>
+        </section>
+    </div>
+</body>
+
+</html>

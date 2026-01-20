@@ -218,14 +218,14 @@ function updateKeywords(phrases) {
     if (!keywordsImpact) return;
     if (Array.isArray(phrases) && phrases.length) {
         const phrase = phrases[0];
-        keywordsImpact.innerHTML = `<span class="keywords-impact-tag">${phrase}</span>`;
+        keywordsImpact.innerHTML = `<span class="keywords-impact-tag ui-tag ui-tag--wide">${phrase}</span>`;
         return;
     }
     if (typeof phrases === 'string' && phrases.trim()) {
-        keywordsImpact.innerHTML = `<span class="keywords-impact-tag">${phrases}</span>`;
+        keywordsImpact.innerHTML = `<span class="keywords-impact-tag ui-tag ui-tag--wide">${phrases}</span>`;
         return;
     }
-    keywordsImpact.innerHTML = '<span class="stat-detail">No phrase matched</span>';
+    keywordsImpact.innerHTML = '<span class="stat-detail ui-text-sm ui-text-muted">No phrase matched</span>';
 }
 
 function appendTranscriptLine(text) {
