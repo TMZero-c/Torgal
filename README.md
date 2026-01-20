@@ -1,6 +1,6 @@
 # Torgal
 
-Version: 1.0.1
+Version: 1.0.2
 
 Local-first AI presentation assistant that listens to your talk and advances slides automatically.
 
@@ -154,3 +154,4 @@ GPU builds are large and can exceed GitHub’s 2 GB per-asset limit. If you uplo
 ## License
 
 MIT License. See `LICENSE`.
+
