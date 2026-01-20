@@ -89,9 +89,9 @@ These are parsed before embeddings and trigger immediate actions:
 - “first slide”, “last slide”
 
 ## Configuration
-
-- **App-side audio settings**: `app/config.js`
-- **Python matching/model settings**: `python/config.py`
+- **Runtime changes**: Go into File -> Preferences and edit as needed
+  - **App-side audio settings**: `app/config.js`
+  - **Python matching/model settings**: `python/config.py`
 - **Runtime overrides**: environment variables prefixed with `TORGAL_` (see `python/config.py`).
 
 ## Model downloads & cache
