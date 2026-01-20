@@ -16,6 +16,7 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 - **Semantic slide matching** using `sentence-transformers` embeddings with recency/keyword boosts.
 - **Dual-window flow** (presenter view + slideshow output).
 - **Slide parsing** from PDF into images + text using PyMuPDF.
+- **Hotword boosts + partial matching** for more responsive recognition.
 - **Voice commands** like “next slide”, “previous slide”, “slide 5”, “first/last slide”.
 - **Q&A mode** for global matching (easier non-adjacent jumps).
 - **Preferences UI** to tune thresholds, models, audio gating, and cache settings.
@@ -92,15 +93,17 @@ Torgal is a desktop presenter app built with Electron + Python. It captures micr
 
 These are parsed before embeddings and trigger immediate actions:
 
-- “next slide”, “previous slide”
-- “slide 7” / “go to slide 7”
+- “next slide”, “go/advance/move to next slide”
+- “previous/prior slide”, “go back a slide”
+- “slide 7” / “go/jump/skip to slide 7”
 - “first slide”, “last slide”
+
+Commands are matched at the start of an utterance, so say them first.
 
 ## Configuration
 
-- **Runtime changes**: Go into File -> Preferences and edit as needed
-  - **App-side audio settings**: `app/config.js`
-  - **Python matching/model settings**: `python/config.py`
+- **Preferences (recommended)**: File → Preferences, then Save & Restart to apply.
+- **Defaults (dev)**: `app/config.js` and `python/config.py` provide baseline settings.
 - **Runtime overrides**: environment variables prefixed with `TORGAL_` (see `python/config.py`).
 
 ### Nuclear options (performance first)
@@ -115,7 +118,7 @@ These are last-resort switches to keep CPU machines usable. You can enable them 
   - Increase to reduce CPU load further at the cost of responsiveness.
 
 - **Keyword-only matching** (`TORGAL_KEYWORD_ONLY_MATCHING=true`)
-  - Skips embeddings entirely and uses keyword overlap only.
+  - Skips embeddings entirely and uses keyword overlap (with a small title bonus).
   - Faster, but less accurate and more sensitive to wording changes.
 
 ## Model downloads & cache
@@ -148,4 +151,6 @@ GPU builds are large and can exceed GitHub’s 2 GB per-asset limit. If you uplo
 - Broader file compatibility (PPTX import, Google Slides export workflows, richer PDF handling)
 - Better onboarding and setup diagnostics (GPU detection, model download progress, mic checks)
 
+## License
 
+MIT License. See `LICENSE`.
