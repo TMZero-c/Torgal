@@ -599,7 +599,9 @@ function openDocumentation() {
     }
   });
 
-  docsWin.loadFile(path.join(__dirname, 'docs.html'));
+  docsWin.loadFile(path.join(__dirname, 'docs.html'), {
+    query: { version: app.getVersion() }
+  });
   docsWin.setTitle('Torgal Documentation');
   docsWin.setMenuBarVisibility(false);
 
@@ -716,7 +718,7 @@ function createMenu() {
               type: 'info',
               title: 'About Torgal',
               message: 'Torgal',
-              detail: 'Local-first AI presentation slide advancer\n\nVersion 1.0.0\n\nBy TMZero-c & Googolplexic'
+              detail: `Local-first AI presentation slide advancer\n\nVersion ${app.getVersion()}\n\nBy TMZero-c & Googolplexic`
             });
           }
         }

@@ -16,9 +16,31 @@ param(
 $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 $PackageJsonPath = Join-Path $ProjectRoot "app\package.json"
+$VersionFile = Join-Path $ProjectRoot "VERSION"
+$ReadmePath = Join-Path $ProjectRoot "README.md"
 $DefaultPackageConfig = Get-Content $PackageJsonPath -Raw | ConvertFrom-Json
 $DefaultExtraResource = $DefaultPackageConfig.config.forge.packagerConfig.extraResource
 $DefaultMakers = $DefaultPackageConfig.config.forge.makers
+
+# Load version from VERSION file if present
+if (Test-Path $VersionFile) {
+    $VersionValue = (Get-Content $VersionFile -Raw).Trim()
+    if ($VersionValue) {
+        $DefaultPackageConfig.version = $VersionValue
+        $DefaultPackageConfig | ConvertTo-Json -Depth 10 | Set-Content $PackageJsonPath -Encoding UTF8
+        Write-Host "[INFO] Using version $VersionValue from VERSION" -ForegroundColor Cyan
+
+        if (Test-Path $ReadmePath) {
+            $ReadmeContent = Get-Content $ReadmePath -Raw
+            if ($ReadmeContent -match '(?m)^Version:\s*.*$') {
+                $ReadmeContent = $ReadmeContent -replace '(?m)^Version:\s*.*$', "Version: $VersionValue"
+            } else {
+                $ReadmeContent = $ReadmeContent -replace '(?m)^#\s.+$', "$&`r`n`r`nVersion: $VersionValue"
+            }
+            Set-Content $ReadmePath -Value $ReadmeContent -Encoding UTF8
+        }
+    }
+}
 
 Write-Host ("=" * 60) -ForegroundColor Cyan
 Write-Host "  Torgal Build Script" -ForegroundColor Cyan

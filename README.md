@@ -1,5 +1,7 @@
 # Torgal
 
+Version: 1.0.0
+
 Local-first AI presentation assistant that listens to your talk and advances slides automatically.
 
 <img width="1919" height="996" alt="Screenshot 2026-01-18 075259" src="https://github.com/user-attachments/assets/86987248-8188-4930-aebb-ac656e73ad5f" />
