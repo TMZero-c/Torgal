@@ -6,10 +6,10 @@ import sys
 
 
 def setup_cuda_dlls() -> None:
-    """Add CUDA DLL directories to PATH when running on Windows.
+    """Add GPU DLL directories (CUDA/ROCm) to PATH when running on Windows.
     
     Works for both:
-    - Dev mode: venv with nvidia packages in site-packages
+    - Dev mode: venv with nvidia/rocm packages in site-packages
     - Bundled mode: PyInstaller bundles DLLs in _internal folder
     """
     # Check if we're running as a PyInstaller bundle
@@ -25,8 +25,18 @@ def setup_cuda_dlls() -> None:
     
     # Dev mode: look for nvidia packages in venv
     venv_path = os.path.dirname(os.path.dirname(sys.executable))
-    for subdir in ["cublas", "cudnn"]:
+    for subdir in ["cublas", "cudnn", "cuda_runtime"]:
         dll_path = os.path.join(venv_path, "Lib", "site-packages", "nvidia", subdir, "bin")
         if os.path.exists(dll_path):
             os.add_dll_directory(dll_path)
             os.environ["PATH"] = dll_path + os.pathsep + os.environ.get("PATH", "")
+    
+    # AMD ROCm: Check torch lib folder for HIP libraries
+    torch_lib = os.path.join(venv_path, "Lib", "site-packages", "torch", "lib")
+    if os.path.exists(torch_lib):
+        # ROCm PyTorch has hip-related DLLs in torch/lib
+        has_rocm = any(f.lower().startswith('hip') or f.lower().startswith('amdhip') 
+                       for f in os.listdir(torch_lib) if f.endswith('.dll'))
+        if has_rocm:
+            os.add_dll_directory(torch_lib)
+            os.environ["PATH"] = torch_lib + os.pathsep + os.environ.get("PATH", "")

@@ -9,15 +9,23 @@ _model = None
 
 
 def get_embedding_model():
-    """Lazy load the sentence transformer model."""
+    """Lazy load the sentence transformer model with GPU auto-detection."""
     global _model
     if _model is None:
         log(f"Loading embedding model ({EMBEDDING_MODEL})...")
         import torch
         log(f"PyTorch version: {torch.__version__}")
-        log(f"CUDA available: {torch.cuda.is_available()}")
+        
+        # Detect GPU type (NVIDIA CUDA or AMD ROCm)
         if torch.cuda.is_available():
-            log(f"CUDA device: {torch.cuda.get_device_name(0)}")
+            device_name = torch.cuda.get_device_name(0)
+            log(f"GPU available: {device_name}")
+            # Check for ROCm backend
+            if hasattr(torch.version, 'hip') and torch.version.hip is not None:
+                log(f"ROCm version: {torch.version.hip}")
+        else:
+            log("No GPU available")
+        
         from sentence_transformers import SentenceTransformer
         requested = (EMBEDDING_DEVICE or "auto").lower()
         if requested == "auto":

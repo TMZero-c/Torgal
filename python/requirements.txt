@@ -17,3 +17,17 @@ PyMuPDF>=1.24             # PDF/slide rendering (import fitz)
 
 # --- Build Tools (dev only, not needed at runtime) ---
 # pyinstaller>=6.0        # Uncomment to install: pip install pyinstaller
+
+# ===========================================
+# GPU Support (Install ONE of the following)
+# ===========================================
+# After installing core requirements above, add GPU support:
+#
+# NVIDIA GPU (CUDA):
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# AMD GPU (ROCm):
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.0
+#
+# CPU Only (no GPU):
+#   pip install torch torchvision torchaudio

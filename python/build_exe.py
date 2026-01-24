@@ -105,15 +105,18 @@ def build_variant(variant='cpu'):
     for pkg in excludes:
         common_opts.append(f'--exclude-module={pkg}')
     
-    # GPU-specific: collect CUDA binaries
+    # GPU-specific: collect CUDA/ROCm binaries
     gpu_opts = []
     if include_gpu:
         gpu_opts = [
             '--collect-binaries=torch',
             '--collect-binaries=ctranslate2',
+            # NVIDIA CUDA libraries
             *collect_namespace_binary_opts('nvidia.cublas'),
             *collect_namespace_binary_opts('nvidia.cuda_runtime'),
             *collect_namespace_binary_opts('nvidia.cudnn'),
+            # AMD ROCm libraries (if installed)
+            *collect_namespace_binary_opts('rocm'),
         ]
     
     # Build server.exe
